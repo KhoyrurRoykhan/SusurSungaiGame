@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polygon, Marker, Popup, Polyline, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, Polyline, GeoJSON, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, 
@@ -97,6 +97,19 @@ const finishIcon = new L.DivIcon({
   iconAnchor: [20, 20],
 });
 
+// Komponen untuk mengikuti posisi kura-kura
+const FollowTurtle = ({ position }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (position) {
+      map.panTo(position, { animate: true, duration: 0.5 });
+    }
+  }, [position, map]);
+  
+  return null;
+};
+
 // Fungsi untuk mengekstrak koordinat dari GeoJSON
 const extractCoordinates = (geojson) => {
   if (geojson.features && geojson.features.length > 0) {
@@ -147,16 +160,16 @@ const findExtremePoints = (coordinates) => {
 const { southPoint, northPoint } = findExtremePoints(batasSungai);
 
 // Titik Start (bawah/selatan) dan Finish (atas/utara)
-const startPoint = southPoint; // Titik paling selatan sebagai START
+const startPoint = [-3.3606, 114.5229]; // Titik paling selatan sebagai START
 const finishPoint = northPoint; // Titik paling utara sebagai FINISH
 
-// Style untuk polygon GeoJSON
+// Style untuk polygon GeoJSON - Hanya garis
 const polygonStyle = {
   color: '#0ea5e9',
+  fillcolor: '#0ea5e9',
   weight: 3,
   opacity: 0.8,
-  fillColor: '#0ea5e9',
-  fillOpacity: 0.15,
+  fillOpacity: 0.5, // Tidak ada fill
   dashArray: '5, 10'
 };
 
@@ -432,7 +445,7 @@ const SungaiBarito = () => {
               <img src={turtleImage} alt="🐢" className="w-6 h-6" />
               Sungai Barito
             </h1>
-            <p className="text-xs text-gray-400">Batas sungai dari data GeoJSON</p>
+            <p className="text-xs text-gray-400">Kura-kura selalu di tengah layar</p>
           </div>
         </div>
 
@@ -454,8 +467,8 @@ const SungaiBarito = () => {
         {/* Map */}
         <div className="flex-1 relative">
           <MapContainer
-            center={centerPoint}
-            zoom={13}
+            center={turtlePos} // Center mengikuti posisi kura-kura
+            zoom={15} // Zoom lebih dekat
             style={{ height: '100%', width: '100%' }}
             ref={mapRef}
           >
@@ -464,23 +477,25 @@ const SungaiBarito = () => {
               attribution='&copy; OpenStreetMap contributors'
             />
             
-            {/* River Boundary dari GeoJSON */}
+            {/* Komponen untuk mengikuti kura-kura */}
+            <FollowTurtle position={turtlePos} />
+            
+            {/* River Boundary dari GeoJSON - Hanya garis */}
             <GeoJSON 
               data={sungaiBaritoGeoJSON}
               style={polygonStyle}
               ref={geojsonRef}
             />
             
-            {/* Juga tetap menggunakan Polygon untuk kompatibilitas dengan fungsi isPointInPolygon */}
+            {/* Polygon untuk kompatibilitas dengan fungsi isPointInPolygon - juga hanya garis */}
             <Polygon 
               positions={batasSungai}
               pathOptions={{ 
                 color: '#0ea5e9', 
-                fillColor: '#0ea5e9', 
-                fillOpacity: 0.15,
                 weight: 3,
-                dashArray: '5, 10',
-                opacity: 0 // Transparan karena sudah ada GeoJSON
+                opacity: 0.8,
+                fillOpacity: 0, // Transparan penuh, hanya garis
+                dashArray: '5, 10'
               }}
             />
             
@@ -602,15 +617,20 @@ const SungaiBarito = () => {
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white shadow overflow-hidden bg-amber-100">
                   <img src={turtleImage} alt="" className="w-full h-full object-cover" />
                 </div>
-                <span className="text-gray-700">Kura-kura</span>
+                <span className="text-gray-700">Kura-kura (di tengah)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-1 bg-amber-500 rounded" style={{ background: '#f59e0b', height: '4px' }}></div>
                   <span className="text-gray-700">Jejak Perjalanan</span>
                 </div>
                 <div className="flex items-center gap-2">
-                <div className="w-6 h-1 bg-sky-500 rounded" style={{ borderTop: '2px dashed #0ea5e9' }}></div>
-                <span className="text-gray-700">Batas Sungai (GeoJSON)</span>
+                <div className="w-6 h-1 bg-sky-500 rounded" style={{ 
+                  background: 'transparent', 
+                  borderTop: '3px dashed #0ea5e9',
+                  height: '3px',
+                  width: '24px'
+                }}></div>
+                <span className="text-gray-700">Batas Sungai (Garis)</span>
                 </div>
             </div>
           </div>
@@ -636,7 +656,7 @@ const SungaiBarito = () => {
           </div>
         </div>
 
-        {/* Control Panel - sama seperti sebelumnya */}
+        {/* Control Panel */}
         <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
           {/* Command Input */}
           <div className="p-4 border-b border-gray-700">
@@ -739,7 +759,7 @@ const SungaiBarito = () => {
               <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
             </div>
             <p className="text-xs text-gray-500 mt-2 italic">
-              Batas sungai dari data GeoJSON
+              Kura-kura selalu berada di tengah layar, map bergerak mengikutinya
             </p>
           </div>
         </div>

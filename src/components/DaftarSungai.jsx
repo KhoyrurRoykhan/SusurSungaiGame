@@ -40,7 +40,7 @@ const levelSungai = [
   },
   {
     id: 2,
-    nama: "Lorem ipsum",
+    nama: "Sungai Alalak",
     lokasi: "Loprem ipsum dolor sit amet",
     deskripsi: "Lorem ipsum dolor sit amet. 33 reprehenderit facilis et enim quisquam hic tempora molestiae ex earum quisquam qui voluptatum delectus non quibusdam dolore.",
     gambar: GambarSungaiKuin,
