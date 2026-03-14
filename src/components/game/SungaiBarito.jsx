@@ -12,7 +12,8 @@ import {
   ArrowLeft,
   AlertCircle,
   Flag,
-  Eraser
+  Eraser,
+  Mountain
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
@@ -22,6 +23,7 @@ import 'leaflet/dist/leaflet.css';
 import turtleImage from './assets/kura-kura-obj.png';
 // Import file GeoJSON
 import sungaiBaritoGeoJSON from './geojson/sungabarito.json';
+import pulauKembangGeoJSON from './geojson/Pulau_Kembang.json';
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -127,6 +129,7 @@ const extractCoordinates = (geojson) => {
 
 // Ekstrak koordinat dari GeoJSON
 const batasSungai = extractCoordinates(sungaiBaritoGeoJSON);
+const pulauKembang = extractCoordinates(pulauKembangGeoJSON);
 
 // Fungsi untuk menghitung titik tengah dari array koordinat
 const calculateCenter = (coordinates) => {
@@ -166,11 +169,61 @@ const finishPoint = northPoint; // Titik paling utara sebagai FINISH
 // Style untuk polygon GeoJSON - Hanya garis
 const polygonStyle = {
   color: '#0ea5e9',
-  fillcolor: '#0ea5e9',
   weight: 3,
   opacity: 0.8,
-  fillOpacity: 0.5, // Tidak ada fill
+  fillOpacity: 0, // Tidak ada fill
   dashArray: '5, 10'
+};
+
+// Style untuk obstacle (Pulau Kembang)
+const obstacleStyle = {
+  color: '#8B4513', // Warna coklat
+  weight: 2,
+  opacity: 0.9,
+  fillColor: '#8B4513',
+  fillOpacity: 0.6,
+  dashArray: null // Garis lurus
+};
+
+// Fungsi untuk mengecek apakah titik berada di dalam obstacle
+const isPointInObstacle = (point, obstacle) => {
+  const x = point[1], y = point[0];
+  let inside = false;
+  for (let i = 0, j = obstacle.length - 1; i < obstacle.length; j = i++) {
+    const xi = obstacle[i][1], yi = obstacle[i][0];
+    const xj = obstacle[j][1], yj = obstacle[j][0];
+    const intersect = ((yi > y) !== (yj > y)) &&
+      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
+
+// Fungsi untuk mengecek apakah titik valid (di dalam sungai dan tidak di obstacle)
+const isValidPosition = (point) => {
+  // Cek apakah di dalam batas sungai
+  const inRiver = isPointInPolygon(point, batasSungai);
+  if (!inRiver) return false;
+  
+  // Cek apakah di obstacle (Pulau Kembang)
+  const inObstacle = isPointInObstacle(point, pulauKembang);
+  if (inObstacle) return false;
+  
+  return true;
+};
+
+// Fungsi untuk mengecek titik di dalam polygon (untuk batas sungai)
+const isPointInPolygon = (point, polygon) => {
+  const x = point[1], y = point[0];
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][1], yi = polygon[i][0];
+    const xj = polygon[j][1], yj = polygon[j][0];
+    const intersect = ((yi > y) !== (yj > y)) &&
+      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
 };
 
 const SungaiBarito = () => {
@@ -178,6 +231,7 @@ const SungaiBarito = () => {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
+  const obstacleRef = useRef(null);
   
   // Turtle State - mulai dari startPoint
   const [turtlePos, setTurtlePos] = useState(startPoint);
@@ -220,21 +274,6 @@ const SungaiBarito = () => {
     }
   }, []);
 
-  // Check if point is inside polygon menggunakan koordinat dari GeoJSON
-  const isPointInPolygon = (point) => {
-    // Gunakan fungsi yang sama tapi dengan batasSungai dari GeoJSON
-    const x = point[1], y = point[0];
-    let inside = false;
-    for (let i = 0, j = batasSungai.length - 1; i < batasSungai.length; j = i++) {
-      const xi = batasSungai[i][1], yi = batasSungai[i][0];
-      const xj = batasSungai[j][1], yj = batasSungai[j][0];
-      const intersect = ((yi > y) !== (yj > y)) &&
-        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  };
-
   // Calculate new position
   const calculateNewPos = (lat, lng, angle, distance) => {
     const rad = (angle * Math.PI) / 180;
@@ -265,8 +304,13 @@ const SungaiBarito = () => {
         if (isNaN(value)) throw new Error('forward membutuhkan angka (meter)');
         const newPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle, value);
         
-        if (!isPointInPolygon(newPos)) {
-          throw new Error('Kura-kura akan keluar dari batas sungai!');
+        // Validasi posisi baru
+        if (!isValidPosition(newPos)) {
+          if (!isPointInPolygon(newPos, batasSungai)) {
+            throw new Error('Kura-kura akan keluar dari batas sungai!');
+          } else {
+            throw new Error('Kura-kura menabrak Pulau Kembang! Tidak bisa melewati pulau.');
+          }
         }
         
         await animateMove(newPos);
@@ -285,8 +329,13 @@ const SungaiBarito = () => {
         if (isNaN(value)) throw new Error('backward membutuhkan angka (meter)');
         const backPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle + 180, value);
         
-        if (!isPointInPolygon(backPos)) {
-          throw new Error('Kura-kura akan keluar dari batas sungai!');
+        // Validasi posisi baru
+        if (!isValidPosition(backPos)) {
+          if (!isPointInPolygon(backPos, batasSungai)) {
+            throw new Error('Kura-kura akan keluar dari batas sungai!');
+          } else {
+            throw new Error('Kura-kura menabrak Pulau Kembang! Tidak bisa melewati pulau.');
+          }
         }
         
         await animateMove(backPos);
@@ -325,8 +374,13 @@ const SungaiBarito = () => {
         const gotoLng = parseFloat(parts[2]);
         const gotoPos = [gotoLat, gotoLng];
         
-        if (!isPointInPolygon(gotoPos)) {
-          throw new Error('Titik tujuan di luar batas sungai!');
+        // Validasi posisi tujuan
+        if (!isValidPosition(gotoPos)) {
+          if (!isPointInPolygon(gotoPos, batasSungai)) {
+            throw new Error('Titik tujuan di luar batas sungai!');
+          } else {
+            throw new Error('Titik tujuan berada di Pulau Kembang!');
+          }
         }
         
         await animateMove(gotoPos);
@@ -400,6 +454,9 @@ const SungaiBarito = () => {
     }
     
     setIsExecuting(false);
+    
+    // Hapus semua kode di terminal setelah selesai dieksekusi
+    setCommands('');
   };
 
   // Reset
@@ -443,9 +500,9 @@ const SungaiBarito = () => {
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <img src={turtleImage} alt="🐢" className="w-6 h-6" />
-              Sungai Barito
+              Sungai Barito - Pulau Kembang
             </h1>
-            <p className="text-xs text-gray-400">Kura-kura selalu di tengah layar</p>
+            <p className="text-xs text-gray-400">Hindari Pulau Kembang (coklat)!</p>
           </div>
         </div>
 
@@ -485,6 +542,13 @@ const SungaiBarito = () => {
               data={sungaiBaritoGeoJSON}
               style={polygonStyle}
               ref={geojsonRef}
+            />
+            
+            {/* Pulau Kembang sebagai obstacle */}
+            <GeoJSON 
+              data={pulauKembangGeoJSON}
+              style={obstacleStyle}
+              ref={obstacleRef}
             />
             
             {/* Polygon untuk kompatibilitas dengan fungsi isPointInPolygon - juga hanya garis */}
@@ -542,7 +606,7 @@ const SungaiBarito = () => {
               <Popup>
                 <div className="text-center">
                   <p className="font-bold text-green-600">START</p>
-                  <p className="text-xs">Titik paling selatan</p>
+                  <p className="text-xs">Titik awal</p>
                   <p className="text-xs">Lat: {startPoint[0].toFixed(5)}</p>
                   <p className="text-xs">Lng: {startPoint[1].toFixed(5)}</p>
                 </div>
@@ -607,7 +671,7 @@ const SungaiBarito = () => {
             <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs border-2 border-white shadow">🏁</div>
-                <span className="text-gray-700">Start (Selatan)</span>
+                <span className="text-gray-700">Start</span>
                 </div>
                 <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs border-2 border-white shadow">🚩</div>
@@ -617,7 +681,7 @@ const SungaiBarito = () => {
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white shadow overflow-hidden bg-amber-100">
                   <img src={turtleImage} alt="" className="w-full h-full object-cover" />
                 </div>
-                <span className="text-gray-700">Kura-kura (di tengah)</span>
+                <span className="text-gray-700">Kura-kura</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-1 bg-amber-500 rounded" style={{ background: '#f59e0b', height: '4px' }}></div>
@@ -630,7 +694,15 @@ const SungaiBarito = () => {
                   height: '3px',
                   width: '24px'
                 }}></div>
-                <span className="text-gray-700">Batas Sungai (Garis)</span>
+                <span className="text-gray-700">Batas Sungai</span>
+                </div>
+                <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-[#8B4513] rounded" style={{ 
+                  background: '#8B4513',
+                  opacity: 0.6,
+                  border: '2px solid #5D3A1A'
+                }}></div>
+                <span className="text-gray-700">Pulau Kembang (Obstacle)</span>
                 </div>
             </div>
           </div>
@@ -701,6 +773,11 @@ const SungaiBarito = () => {
                 <RotateCcw size={18} />
               </motion.button>
             </div>
+            
+            {/* Informasi bahwa terminal akan dikosongkan setelah eksekusi */}
+            <p className="text-xs text-gray-500 mt-2 italic">
+              ⚡ Kode akan otomatis dihapus setelah dieksekusi
+            </p>
           </div>
 
           {/* Command History */}
@@ -710,7 +787,7 @@ const SungaiBarito = () => {
             {commandHistory.length === 0 ? (
               <div className="text-gray-500 text-sm italic text-center py-8">
                 <p>Belum ada perintah dijalankan...</p>
-                <p className="text-xs mt-2">Mulai navigasi dari START ke FINISH!</p>
+                <p className="text-xs mt-2">Mulai navigasi dari START ke FINISH! Hindari Pulau Kembang!</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -759,7 +836,7 @@ const SungaiBarito = () => {
               <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
             </div>
             <p className="text-xs text-gray-500 mt-2 italic">
-              Kura-kura selalu berada di tengah layar, map bergerak mengikutinya
+              Hindari area berwarna coklat (Pulau Kembang)!
             </p>
           </div>
         </div>
@@ -788,7 +865,7 @@ const SungaiBarito = () => {
               </motion.div>
               
               <h2 className="text-3xl font-bold text-gray-800 mb-2">Level Selesai! 🎉</h2>
-              <p className="text-gray-600 mb-6">Kura-kura berhasil mencapai FINISH!</p>
+              <p className="text-gray-600 mb-6">Kura-kura berhasil mencapai FINISH tanpa menabrak pulau!</p>
               
               <div className="bg-gray-100 rounded-2xl p-4 mb-6">
                 <div className="text-center">
