@@ -164,7 +164,8 @@ const { southPoint, northPoint } = findExtremePoints(batasSungai);
 
 // Titik Start (bawah/selatan) dan Finish (atas/utara)
 const startPoint = [-3.3606, 114.5229]; // Titik paling selatan sebagai START
-const finishPoint = northPoint; // Titik paling utara sebagai FINISH
+const finishPoint = [-3.2819, 114.5665]; // Titik paling utara sebagai FINISH
+
 
 // Style untuk polygon GeoJSON - Hanya garis
 const polygonStyle = {
@@ -232,6 +233,7 @@ const SungaiBarito = () => {
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
   const obstacleRef = useRef(null);
+  const textareaRef = useRef(null); // Ref untuk textarea
   
   // Turtle State - mulai dari startPoint
   const [turtlePos, setTurtlePos] = useState(startPoint);
@@ -273,6 +275,14 @@ const SungaiBarito = () => {
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
   }, []);
+
+  // Effect untuk memfokuskan textarea setelah eksekusi selesai
+  useEffect(() => {
+    // Jika tidak sedang executing dan textarea ada, fokuskan
+    if (!isExecuting && textareaRef.current && !isFinished) {
+      textareaRef.current.focus();
+    }
+  }, [isExecuting, isFinished]);
 
   // Calculate new position
   const calculateNewPos = (lat, lng, angle, distance) => {
@@ -425,7 +435,7 @@ const SungaiBarito = () => {
 
   // Run all commands
   const runCommands = async () => {
-    if (!commands.trim()) return;
+    if (!commands.trim() || isExecuting || isFinished) return;
     
     setIsExecuting(true);
     setError('');
@@ -457,6 +467,18 @@ const SungaiBarito = () => {
     
     // Hapus semua kode di terminal setelah selesai dieksekusi
     setCommands('');
+    
+    // Fokus kembali ke textarea setelah state diupdate
+    // useEffect akan menangani fokus karena isExecuting berubah
+  };
+
+  // Handler untuk key down di textarea
+  const handleKeyDown = (e) => {
+    // Cek jika tombol Enter ditekan tanpa Shift
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Mencegah new line
+      runCommands(); // Jalankan perintah
+    }
   };
 
   // Reset
@@ -470,6 +492,13 @@ const SungaiBarito = () => {
     setElapsedTime(0);
     setIsFinished(false);
     setTrail([startPoint]); // Reset jejak ke titik start saja
+    
+    // Fokus ke textarea setelah reset
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 100);
   };
 
   // Hapus jejak
@@ -738,11 +767,14 @@ const SungaiBarito = () => {
             </div>
             
             <textarea
+              ref={textareaRef}
               value={commands}
               onChange={(e) => setCommands(e.target.value)}
-              placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\nright 45\nbackward 30`}
+              onKeyDown={handleKeyDown}
+              placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\nright 45\nbackward 30\n\nTekan Enter untuk menjalankan`}
               className="w-full h-36 bg-gray-900 text-green-400 font-mono text-sm p-3 rounded-lg border border-gray-600 focus:border-teal-500 focus:outline-none resize-none"
               disabled={isExecuting}
+              autoFocus // Auto focus saat komponen dimuat
             />
             
             {error && (
@@ -774,10 +806,15 @@ const SungaiBarito = () => {
               </motion.button>
             </div>
             
-            {/* Informasi bahwa terminal akan dikosongkan setelah eksekusi */}
-            <p className="text-xs text-gray-500 mt-2 italic">
-              ⚡ Kode akan otomatis dihapus setelah dieksekusi
-            </p>
+            {/* Informasi shortcut */}
+            <div className="flex justify-between items-center mt-2">
+              <p className="text-xs text-gray-500 italic">
+                ⚡ Kode akan dihapus & fokus kembali
+              </p>
+              <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">
+                Enter ⏎
+              </span>
+            </div>
           </div>
 
           {/* Command History */}
@@ -836,6 +873,9 @@ const SungaiBarito = () => {
               <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
             </div>
             <p className="text-xs text-gray-500 mt-2 italic">
+              💡 Tekan Enter untuk menjalankan perintah (fokus otomatis)
+            </p>
+            <p className="text-xs text-gray-500 italic">
               Hindari area berwarna coklat (Pulau Kembang)!
             </p>
           </div>
