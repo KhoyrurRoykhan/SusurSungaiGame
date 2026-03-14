@@ -166,7 +166,6 @@ const { southPoint, northPoint } = findExtremePoints(batasSungai);
 const startPoint = [-3.3606, 114.5229]; // Titik paling selatan sebagai START
 const finishPoint = [-3.2819, 114.5665]; // Titik paling utara sebagai FINISH
 
-
 // Style untuk polygon GeoJSON - Hanya garis
 const polygonStyle = {
   color: '#0ea5e9',
@@ -227,6 +226,30 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
+// Fungsi untuk mencari titik perpotongan dengan batas sungai
+const findIntersectionPoint = (startPos, endPos, polygon) => {
+  // Implementasi sederhana: lakukan binary search untuk menemukan titik terakhir di dalam polygon
+  let low = 0;
+  let high = 1;
+  let lastValidPos = startPos;
+  
+  for (let i = 0; i < 10; i++) { // 10 iterasi untuk presisi
+    const mid = (low + high) / 2;
+    const testLat = startPos[0] + (endPos[0] - startPos[0]) * mid;
+    const testLng = startPos[1] + (endPos[1] - startPos[1]) * mid;
+    const testPos = [testLat, testLng];
+    
+    if (isPointInPolygon(testPos, polygon)) {
+      lastValidPos = testPos;
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  
+  return lastValidPos;
+};
+
 const SungaiBarito = () => {
   const navigate = useNavigate();
   const mapRef = useRef(null);
@@ -242,6 +265,7 @@ const SungaiBarito = () => {
   const [commands, setCommands] = useState('');
   const [commandHistory, setCommandHistory] = useState([]);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState(''); // State untuk warning
   const [startTime, setStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
@@ -284,6 +308,16 @@ const SungaiBarito = () => {
     }
   }, [isExecuting, isFinished]);
 
+  // Auto-hide warning setelah 3 detik
+  useEffect(() => {
+    if (warning) {
+      const timer = setTimeout(() => {
+        setWarning('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [warning]);
+
   // Calculate new position
   const calculateNewPos = (lat, lng, angle, distance) => {
     const rad = (angle * Math.PI) / 180;
@@ -312,24 +346,40 @@ const SungaiBarito = () => {
       case 'forward':
       case 'fd':
         if (isNaN(value)) throw new Error('forward membutuhkan angka (meter)');
-        const newPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle, value);
         
-        // Validasi posisi baru
-        if (!isValidPosition(newPos)) {
-          if (!isPointInPolygon(newPos, batasSungai)) {
-            throw new Error('Kura-kura akan keluar dari batas sungai!');
-          } else {
-            throw new Error('Kura-kura menabrak Pulau Kembang! Tidak bisa melewati pulau.');
-          }
+        // Hitung posisi target
+        const targetPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle, value);
+        
+        // Cek apakah targetPos di dalam sungai
+        if (!isPointInPolygon(targetPos, batasSungai)) {
+          // Cari titik perpotongan dengan batas sungai
+          const intersectionPoint = findIntersectionPoint(turtlePos, targetPos, batasSungai);
+          
+          // Animasi ke titik perpotongan
+          await animateMove(intersectionPoint);
+          setTurtlePos(intersectionPoint);
+          setTrail(prev => [...prev, intersectionPoint]);
+          
+          // Tampilkan warning
+          setWarning('⚠️ Kura-kura mencapai batas sungai! Tidak bisa melanjutkan.');
+          
+          // Hentikan eksekusi perintah selanjutnya
+          throw new Error('BATAS_SUNGAI');
         }
         
-        await animateMove(newPos);
-        setTurtlePos(newPos);
-        // Tambahkan titik baru ke jejak
-        setTrail(prev => [...prev, newPos]);
+        // Cek apakah menabrak Pulau Kembang
+        if (isPointInObstacle(targetPos, pulauKembang)) {
+          setWarning('⚠️ Kura-kura menabrak Pulau Kembang!');
+          throw new Error('Kura-kura menabrak Pulau Kembang! Tidak bisa melewati pulau.');
+        }
+        
+        // Jika aman, gerakkan ke target
+        await animateMove(targetPos);
+        setTurtlePos(targetPos);
+        setTrail(prev => [...prev, targetPos]);
         
         // Check finish
-        if (checkFinish(newPos)) {
+        if (checkFinish(targetPos)) {
           setIsFinished(true);
         }
         break;
@@ -337,23 +387,39 @@ const SungaiBarito = () => {
       case 'backward':
       case 'bk':
         if (isNaN(value)) throw new Error('backward membutuhkan angka (meter)');
-        const backPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle + 180, value);
         
-        // Validasi posisi baru
-        if (!isValidPosition(backPos)) {
-          if (!isPointInPolygon(backPos, batasSungai)) {
-            throw new Error('Kura-kura akan keluar dari batas sungai!');
-          } else {
-            throw new Error('Kura-kura menabrak Pulau Kembang! Tidak bisa melewati pulau.');
-          }
+        // Hitung posisi target (mundur = angle + 180)
+        const backTargetPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle + 180, value);
+        
+        // Cek apakah backTargetPos di dalam sungai
+        if (!isPointInPolygon(backTargetPos, batasSungai)) {
+          // Cari titik perpotongan dengan batas sungai
+          const intersectionPoint = findIntersectionPoint(turtlePos, backTargetPos, batasSungai);
+          
+          // Animasi ke titik perpotongan
+          await animateMove(intersectionPoint);
+          setTurtlePos(intersectionPoint);
+          setTrail(prev => [...prev, intersectionPoint]);
+          
+          // Tampilkan warning
+          setWarning('⚠️ Kura-kura mencapai batas sungai! Tidak bisa melanjutkan.');
+          
+          // Hentikan eksekusi perintah selanjutnya
+          throw new Error('BATAS_SUNGAI');
         }
         
-        await animateMove(backPos);
-        setTurtlePos(backPos);
-        // Tambahkan titik baru ke jejak
-        setTrail(prev => [...prev, backPos]);
+        // Cek apakah menabrak Pulau Kembang
+        if (isPointInObstacle(backTargetPos, pulauKembang)) {
+          setWarning('⚠️ Kura-kura menabrak Pulau Kembang!');
+          throw new Error('Kura-kura menabrak Pulau Kembang! Tidak bisa melewati pulau.');
+        }
         
-        if (checkFinish(backPos)) {
+        // Jika aman, gerakkan ke target
+        await animateMove(backTargetPos);
+        setTurtlePos(backTargetPos);
+        setTrail(prev => [...prev, backTargetPos]);
+        
+        if (checkFinish(backTargetPos)) {
           setIsFinished(true);
         }
         break;
@@ -385,17 +451,18 @@ const SungaiBarito = () => {
         const gotoPos = [gotoLat, gotoLng];
         
         // Validasi posisi tujuan
-        if (!isValidPosition(gotoPos)) {
-          if (!isPointInPolygon(gotoPos, batasSungai)) {
-            throw new Error('Titik tujuan di luar batas sungai!');
-          } else {
-            throw new Error('Titik tujuan berada di Pulau Kembang!');
-          }
+        if (!isPointInPolygon(gotoPos, batasSungai)) {
+          setWarning('⚠️ Titik tujuan di luar batas sungai!');
+          throw new Error('Titik tujuan di luar batas sungai!');
+        }
+        
+        if (isPointInObstacle(gotoPos, pulauKembang)) {
+          setWarning('⚠️ Titik tujuan berada di Pulau Kembang!');
+          throw new Error('Titik tujuan berada di Pulau Kembang!');
         }
         
         await animateMove(gotoPos);
         setTurtlePos(gotoPos);
-        // Tambahkan titik baru ke jejak
         setTrail(prev => [...prev, gotoPos]);
         
         if (checkFinish(gotoPos)) {
@@ -439,6 +506,7 @@ const SungaiBarito = () => {
     
     setIsExecuting(true);
     setError('');
+    setWarning('');
     if (!startTime) setStartTime(Date.now());
     
     const lines = commands.split('\n').filter(line => line.trim());
@@ -458,9 +526,15 @@ const SungaiBarito = () => {
       }
       
     } catch (err) {
-      setError(err.message);
-      history[history.length - 1].status = 'error';
-      setCommandHistory([...history]);
+      // Jangan tampilkan error untuk BATAS_SUNGAI karena sudah ada warning
+      if (err.message !== 'BATAS_SUNGAI') {
+        setError(err.message);
+      }
+      
+      if (history.length > 0) {
+        history[history.length - 1].status = 'error';
+        setCommandHistory([...history]);
+      }
     }
     
     setIsExecuting(false);
@@ -488,6 +562,7 @@ const SungaiBarito = () => {
     setCommands('');
     setCommandHistory([]);
     setError('');
+    setWarning('');
     setStartTime(null);
     setElapsedTime(0);
     setIsFinished(false);
@@ -694,6 +769,21 @@ const SungaiBarito = () => {
             </div>
           </div>
 
+          {/* Warning Message */}
+          <AnimatePresence>
+            {warning && (
+              <motion.div 
+                className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-yellow-900 px-4 py-2 rounded-lg shadow-lg z-[1000] flex items-center gap-2 border-2 border-yellow-600"
+                initial={{ opacity: 0, y: -50 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -50 }}
+              >
+                <AlertCircle size={18} />
+                <span className="font-bold text-sm">{warning}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Legend */}
           <div className="absolute top-4 right-4 bg-white/95 backdrop-blur p-4 rounded-xl shadow-lg z-[1000]">
             <h4 className="font-bold text-gray-800 mb-3 text-sm">Legenda</h4>
@@ -874,6 +964,9 @@ const SungaiBarito = () => {
             </div>
             <p className="text-xs text-gray-500 mt-2 italic">
               💡 Tekan Enter untuk menjalankan perintah (fokus otomatis)
+            </p>
+            <p className="text-xs text-gray-500 italic">
+              ⚠️ Kura-kura akan berhenti di batas sungai dan muncul peringatan
             </p>
             <p className="text-xs text-gray-500 italic">
               Hindari area berwarna coklat (Pulau Kembang)!
