@@ -1,0 +1,806 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, Polyline, GeoJSON } from 'react-leaflet';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Play, 
+  Pause, 
+  RotateCcw, 
+  Terminal,
+  MapPin,
+  Trophy,
+  Clock,
+  ArrowLeft,
+  AlertCircle,
+  Flag,
+  Eraser
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Import gambar kura-kura
+import turtleImage from './assets/kura-kura-obj.png';
+// Import file GeoJSON
+import sungaiBaritoGeoJSON from './geojson/sungabarito.json';
+
+// Fix Leaflet default icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Custom Kura-kura Icon dengan gambar dan arah yang bisa berubah
+const createTurtleIcon = (angle) => {
+  return L.divIcon({
+    className: 'custom-turtle-obj-icon',
+    html: `<div style="
+      width: 50px; 
+      height: 50px;
+      transform: rotate(${angle}deg);
+      transform-origin: center;
+      transition: transform 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <img 
+        src="${turtleImage}" 
+        alt="Kura-kura"
+        style="
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+        "
+      />
+    </div>`,
+    iconSize: [50, 50],
+    iconAnchor: [25, 25],
+    popupAnchor: [0, -25],
+  });
+};
+
+const startIcon = new L.DivIcon({
+  className: 'start-icon',
+  html: `<div style="
+    width: 36px; 
+    height: 36px; 
+    background: #22c55e; 
+    border-radius: 50%; 
+    border: 3px solid white;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  ">🏁</div>`,
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+});
+
+const finishIcon = new L.DivIcon({
+  className: 'finish-icon',
+  html: `<div style="
+    width: 40px; 
+    height: 40px; 
+    background: #ef4444; 
+    border-radius: 50%; 
+    border: 3px solid white;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    animation: pulse 2s infinite;
+  ">🚩</div>`,
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+});
+
+// Fungsi untuk mengekstrak koordinat dari GeoJSON
+const extractCoordinates = (geojson) => {
+  if (geojson.features && geojson.features.length > 0) {
+    const feature = geojson.features[0];
+    if (feature.geometry.type === 'Polygon') {
+      // Untuk Polygon, ambil ring pertama (biasanya yang terluar)
+      return feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+    } else if (feature.geometry.type === 'MultiPolygon') {
+      // Untuk MultiPolygon, ambil ring pertama dari polygon pertama
+      return feature.geometry.coordinates[0][0].map(coord => [coord[1], coord[0]]);
+    }
+  }
+  return [];
+};
+
+// Ekstrak koordinat dari GeoJSON
+const batasSungai = extractCoordinates(sungaiBaritoGeoJSON);
+
+// Fungsi untuk menghitung titik tengah dari array koordinat
+const calculateCenter = (coordinates) => {
+  if (coordinates.length === 0) return [-3.305, 114.555];
+  
+  let latSum = 0, lngSum = 0;
+  coordinates.forEach(coord => {
+    latSum += coord[0];
+    lngSum += coord[1];
+  });
+  
+  return [latSum / coordinates.length, lngSum / coordinates.length];
+};
+
+// Hitung titik tengah untuk center map
+const centerPoint = calculateCenter(batasSungai);
+
+// Fungsi untuk mencari titik terendah (paling selatan) dan tertinggi (paling utara)
+const findExtremePoints = (coordinates) => {
+  let southPoint = coordinates[0]; // Lowest latitude (paling selatan)
+  let northPoint = coordinates[0]; // Highest latitude (paling utara)
+  
+  coordinates.forEach(coord => {
+    if (coord[0] < southPoint[0]) southPoint = coord; // Lebih kecil = lebih selatan
+    if (coord[0] > northPoint[0]) northPoint = coord; // Lebih besar = lebih utara
+  });
+  
+  return { southPoint, northPoint };
+};
+
+const { southPoint, northPoint } = findExtremePoints(batasSungai);
+
+// Titik Start (bawah/selatan) dan Finish (atas/utara)
+const startPoint = southPoint; // Titik paling selatan sebagai START
+const finishPoint = northPoint; // Titik paling utara sebagai FINISH
+
+// Style untuk polygon GeoJSON
+const polygonStyle = {
+  color: '#0ea5e9',
+  weight: 3,
+  opacity: 0.8,
+  fillColor: '#0ea5e9',
+  fillOpacity: 0.15,
+  dashArray: '5, 10'
+};
+
+const SungaiBarito = () => {
+  const navigate = useNavigate();
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const geojsonRef = useRef(null);
+  
+  // Turtle State - mulai dari startPoint
+  const [turtlePos, setTurtlePos] = useState(startPoint);
+  const [turtleAngle, setTurtleAngle] = useState(0);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [commands, setCommands] = useState('');
+  const [commandHistory, setCommandHistory] = useState([]);
+  const [error, setError] = useState('');
+  const [startTime, setStartTime] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isFinished, setIsFinished] = useState(false);
+  
+  // State untuk jejak perjalanan
+  const [trail, setTrail] = useState([startPoint]); // Mulai dengan titik start
+  const [showTrail, setShowTrail] = useState(true);
+
+  // Timer
+  useEffect(() => {
+    let interval;
+    if (startTime && !isFinished) {
+      interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [startTime, isFinished]);
+
+  // Update marker icon when angle changes
+  useEffect(() => {
+    if (markerRef.current) {
+      markerRef.current.setIcon(createTurtleIcon(turtleAngle));
+    }
+  }, [turtleAngle]);
+
+  // Zoom ke batas sungai saat pertama kali dimuat
+  useEffect(() => {
+    if (mapRef.current && batasSungai.length > 0) {
+      const bounds = L.latLngBounds(batasSungai);
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, []);
+
+  // Check if point is inside polygon menggunakan koordinat dari GeoJSON
+  const isPointInPolygon = (point) => {
+    // Gunakan fungsi yang sama tapi dengan batasSungai dari GeoJSON
+    const x = point[1], y = point[0];
+    let inside = false;
+    for (let i = 0, j = batasSungai.length - 1; i < batasSungai.length; j = i++) {
+      const xi = batasSungai[i][1], yi = batasSungai[i][0];
+      const xj = batasSungai[j][1], yj = batasSungai[j][0];
+      const intersect = ((yi > y) !== (yj > y)) &&
+        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  };
+
+  // Calculate new position
+  const calculateNewPos = (lat, lng, angle, distance) => {
+    const rad = (angle * Math.PI) / 180;
+    const deltaLat = (distance * Math.cos(rad)) / 111000;
+    const deltaLng = (distance * Math.sin(rad)) / (111000 * Math.cos(lat * Math.PI / 180));
+    return [lat + deltaLat, lng + deltaLng];
+  };
+
+  // Check if reached finish
+  const checkFinish = (pos) => {
+    const distToFinish = Math.sqrt(
+      Math.pow(pos[0] - finishPoint[0], 2) + 
+      Math.pow(pos[1] - finishPoint[1], 2)
+    );
+    // Threshold ~100m
+    return distToFinish < 0.001;
+  };
+
+  // Execute single command
+  const executeCommand = async (cmd) => {
+    const parts = cmd.trim().toLowerCase().split(' ');
+    const action = parts[0];
+    const value = parseFloat(parts[1]);
+
+    switch(action) {
+      case 'forward':
+      case 'fd':
+        if (isNaN(value)) throw new Error('forward membutuhkan angka (meter)');
+        const newPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle, value);
+        
+        if (!isPointInPolygon(newPos)) {
+          throw new Error('Kura-kura akan keluar dari batas sungai!');
+        }
+        
+        await animateMove(newPos);
+        setTurtlePos(newPos);
+        // Tambahkan titik baru ke jejak
+        setTrail(prev => [...prev, newPos]);
+        
+        // Check finish
+        if (checkFinish(newPos)) {
+          setIsFinished(true);
+        }
+        break;
+        
+      case 'backward':
+      case 'bk':
+        if (isNaN(value)) throw new Error('backward membutuhkan angka (meter)');
+        const backPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle + 180, value);
+        
+        if (!isPointInPolygon(backPos)) {
+          throw new Error('Kura-kura akan keluar dari batas sungai!');
+        }
+        
+        await animateMove(backPos);
+        setTurtlePos(backPos);
+        // Tambahkan titik baru ke jejak
+        setTrail(prev => [...prev, backPos]);
+        
+        if (checkFinish(backPos)) {
+          setIsFinished(true);
+        }
+        break;
+        
+      case 'left':
+      case 'lt':
+        if (isNaN(value)) throw new Error('left membutuhkan angka (derajat)');
+        setTurtleAngle(prev => {
+          const newAngle = (prev - value) % 360;
+          return newAngle < 0 ? newAngle + 360 : newAngle;
+        });
+        await delay(300);
+        break;
+        
+      case 'right':
+      case 'rt':
+        if (isNaN(value)) throw new Error('right membutuhkan angka (derajat)');
+        setTurtleAngle(prev => {
+          const newAngle = (prev + value) % 360;
+          return newAngle < 0 ? newAngle + 360 : newAngle;
+        });
+        await delay(300);
+        break;
+        
+      case 'goto':
+        if (parts.length < 3) throw new Error('goto membutuhkan lat dan lng');
+        const gotoLat = parseFloat(parts[1]);
+        const gotoLng = parseFloat(parts[2]);
+        const gotoPos = [gotoLat, gotoLng];
+        
+        if (!isPointInPolygon(gotoPos)) {
+          throw new Error('Titik tujuan di luar batas sungai!');
+        }
+        
+        await animateMove(gotoPos);
+        setTurtlePos(gotoPos);
+        // Tambahkan titik baru ke jejak
+        setTrail(prev => [...prev, gotoPos]);
+        
+        if (checkFinish(gotoPos)) {
+          setIsFinished(true);
+        }
+        break;
+        
+      default:
+        throw new Error(`Perintah tidak dikenal: ${action}`);
+    }
+  };
+
+  // Animate movement
+  const animateMove = (targetPos) => {
+    return new Promise((resolve) => {
+      const startPos = [...turtlePos];
+      const steps = 20;
+      let currentStep = 0;
+      
+      const interval = setInterval(() => {
+        currentStep++;
+        const progress = currentStep / steps;
+        const currentLat = startPos[0] + (targetPos[0] - startPos[0]) * progress;
+        const currentLng = startPos[1] + (targetPos[1] - startPos[1]) * progress;
+        
+        setTurtlePos([currentLat, currentLng]);
+        
+        if (currentStep >= steps) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 50);
+    });
+  };
+
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Run all commands
+  const runCommands = async () => {
+    if (!commands.trim()) return;
+    
+    setIsExecuting(true);
+    setError('');
+    if (!startTime) setStartTime(Date.now());
+    
+    const lines = commands.split('\n').filter(line => line.trim());
+    const history = [];
+    
+    try {
+      for (const line of lines) {
+        if (isFinished) break;
+        
+        history.push({ cmd: line, status: 'running' });
+        setCommandHistory([...history]);
+        
+        await executeCommand(line);
+        
+        history[history.length - 1].status = 'done';
+        setCommandHistory([...history]);
+      }
+      
+    } catch (err) {
+      setError(err.message);
+      history[history.length - 1].status = 'error';
+      setCommandHistory([...history]);
+    }
+    
+    setIsExecuting(false);
+  };
+
+  // Reset
+  const reset = () => {
+    setTurtlePos(startPoint);
+    setTurtleAngle(0);
+    setCommands('');
+    setCommandHistory([]);
+    setError('');
+    setStartTime(null);
+    setElapsedTime(0);
+    setIsFinished(false);
+    setTrail([startPoint]); // Reset jejak ke titik start saja
+  };
+
+  // Hapus jejak
+  const clearTrail = () => {
+    setTrail([turtlePos]); // Set jejak hanya dengan posisi saat ini
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-900">
+      {/* Header */}
+      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <motion.button
+            onClick={() => navigate('/sungai')}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <ArrowLeft size={20} className="text-gray-300" />
+          </motion.button>
+          
+          <div>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2">
+              <img src={turtleImage} alt="🐢" className="w-6 h-6" />
+              Sungai Barito
+            </h1>
+            <p className="text-xs text-gray-400">Batas sungai dari data GeoJSON</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-lg">
+            <Clock size={16} className="text-amber-400" />
+            <span className="text-white font-mono">{formatTime(elapsedTime)}</span>
+          </div>
+          
+          <div className="flex items-center gap-2 bg-green-900/50 px-3 py-1 rounded-lg border border-green-600">
+            <Flag size={16} className="text-green-400" />
+            <span className="text-green-300 text-sm">Start → Finish</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Map */}
+        <div className="flex-1 relative">
+          <MapContainer
+            center={centerPoint}
+            zoom={13}
+            style={{ height: '100%', width: '100%' }}
+            ref={mapRef}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; OpenStreetMap contributors'
+            />
+            
+            {/* River Boundary dari GeoJSON */}
+            <GeoJSON 
+              data={sungaiBaritoGeoJSON}
+              style={polygonStyle}
+              ref={geojsonRef}
+            />
+            
+            {/* Juga tetap menggunakan Polygon untuk kompatibilitas dengan fungsi isPointInPolygon */}
+            <Polygon 
+              positions={batasSungai}
+              pathOptions={{ 
+                color: '#0ea5e9', 
+                fillColor: '#0ea5e9', 
+                fillOpacity: 0.15,
+                weight: 3,
+                dashArray: '5, 10',
+                opacity: 0 // Transparan karena sudah ada GeoJSON
+              }}
+            />
+            
+            {/* Jejak Perjalanan */}
+            {showTrail && trail.length > 1 && (
+              <Polyline 
+                positions={trail}
+                pathOptions={{ 
+                  color: '#f59e0b', 
+                  weight: 4,
+                  opacity: 0.8,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  dashArray: null
+                }}
+              />
+            )}
+            
+            {/* Titik-titik jejak (opsional) */}
+            {showTrail && trail.map((point, index) => (
+              index > 0 && index < trail.length - 1 && (
+                <Marker 
+                  key={index}
+                  position={point}
+                  icon={L.divIcon({
+                    className: 'trail-dot',
+                    html: `<div style="
+                      width: 6px;
+                      height: 6px;
+                      background: #f59e0b;
+                      border-radius: 50%;
+                      border: 1px solid white;
+                      opacity: 0.6;
+                    "></div>`,
+                    iconSize: [6, 6],
+                    iconAnchor: [3, 3],
+                  })}
+                />
+              )
+            ))}
+            
+            {/* Start Point */}
+            <Marker position={startPoint} icon={startIcon}>
+              <Popup>
+                <div className="text-center">
+                  <p className="font-bold text-green-600">START</p>
+                  <p className="text-xs">Titik paling selatan</p>
+                  <p className="text-xs">Lat: {startPoint[0].toFixed(5)}</p>
+                  <p className="text-xs">Lng: {startPoint[1].toFixed(5)}</p>
+                </div>
+              </Popup>
+            </Marker>
+            
+            {/* Finish Point */}
+            <Marker position={finishPoint} icon={finishIcon}>
+              <Popup>
+                <div className="text-center">
+                  <p className="font-bold text-red-600">FINISH</p>
+                  <p className="text-xs">Titik paling utara</p>
+                  <p className="text-xs">Lat: {finishPoint[0].toFixed(5)}</p>
+                  <p className="text-xs">Lng: {finishPoint[1].toFixed(5)}</p>
+                </div>
+              </Popup>
+            </Marker>
+            
+            {/* Kura-kura dengan gambar dan arah yang bisa berputar */}
+            <Marker 
+              position={turtlePos}
+              icon={createTurtleIcon(turtleAngle)}
+              ref={markerRef}
+            >
+              <Popup>
+                <div className="text-center">
+                  <p className="font-bold">🐢 Kura-kura</p>
+                  <p className="text-xs">Lat: {turtlePos[0].toFixed(5)}</p>
+                  <p className="text-xs">Lng: {turtlePos[1].toFixed(5)}</p>
+                  <p className="text-xs">Arah: {turtleAngle}°</p>
+                  <div className="mt-2">
+                    <img 
+                      src={turtleImage} 
+                      alt="Kura-kura" 
+                      className="w-12 h-12 mx-auto"
+                      style={{ transform: `rotate(${turtleAngle}deg)` }}
+                    />
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          </MapContainer>
+
+          {/* Direction Indicator */}
+          <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-xl border-2 border-teal-500 z-[1000]">
+            <div className="text-sm font-bold text-gray-800 mb-2 text-center">Arah Kura-kura</div>
+            <div 
+                className="w-20 h-20 border-4 border-teal-500 rounded-full flex items-center justify-center relative bg-teal-50"
+                style={{ transform: `rotate(${turtleAngle}deg)` }}
+            >
+                <div className="absolute -top-3 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-teal-600" />
+                <div className="w-3 h-3 bg-teal-600 rounded-full" />
+            </div>
+            <div className="text-center text-lg font-mono font-bold text-teal-700 mt-2">
+                {turtleAngle}°
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="absolute top-4 right-4 bg-white/95 backdrop-blur p-4 rounded-xl shadow-lg z-[1000]">
+            <h4 className="font-bold text-gray-800 mb-3 text-sm">Legenda</h4>
+            <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs border-2 border-white shadow">🏁</div>
+                <span className="text-gray-700">Start (Selatan)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs border-2 border-white shadow">🚩</div>
+                <span className="text-gray-700">Finish (Utara)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white shadow overflow-hidden bg-amber-100">
+                  <img src={turtleImage} alt="" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-gray-700">Kura-kura</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-1 bg-amber-500 rounded" style={{ background: '#f59e0b', height: '4px' }}></div>
+                  <span className="text-gray-700">Jejak Perjalanan</span>
+                </div>
+                <div className="flex items-center gap-2">
+                <div className="w-6 h-1 bg-sky-500 rounded" style={{ borderTop: '2px dashed #0ea5e9' }}></div>
+                <span className="text-gray-700">Batas Sungai (GeoJSON)</span>
+                </div>
+            </div>
+          </div>
+
+          {/* Trail Controls */}
+          <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur p-3 rounded-xl shadow-lg z-[1000] flex gap-2">
+            <button
+              onClick={() => setShowTrail(!showTrail)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
+                showTrail 
+                  ? 'bg-amber-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {showTrail ? '👁️' : '👁️‍🗨️'} Jejak
+            </button>
+            <button
+              onClick={clearTrail}
+              className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+            >
+              <Eraser size={14} /> Hapus
+            </button>
+          </div>
+        </div>
+
+        {/* Control Panel - sama seperti sebelumnya */}
+        <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
+          {/* Command Input */}
+          <div className="p-4 border-b border-gray-700">
+            <div className="flex items-center gap-2 mb-2 text-gray-300">
+              <Terminal size={18} />
+              <span className="font-bold text-sm">Terminal Perintah</span>
+            </div>
+            
+            <textarea
+              value={commands}
+              onChange={(e) => setCommands(e.target.value)}
+              placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\nright 45\nbackward 30`}
+              className="w-full h-36 bg-gray-900 text-green-400 font-mono text-sm p-3 rounded-lg border border-gray-600 focus:border-teal-500 focus:outline-none resize-none"
+              disabled={isExecuting}
+            />
+            
+            {error && (
+              <div className="mt-2 p-2 bg-red-900/50 border border-red-500 rounded-lg flex items-center gap-2 text-red-300 text-xs">
+                <AlertCircle size={14} />
+                {error}
+              </div>
+            )}
+            
+            <div className="flex gap-2 mt-3">
+              <motion.button
+                onClick={runCommands}
+                disabled={isExecuting || !commands.trim() || isFinished}
+                className="flex-1 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
+                whileHover={!isExecuting && !isFinished ? { scale: 1.02 } : {}}
+                whileTap={!isExecuting && !isFinished ? { scale: 0.98 } : {}}
+              >
+                {isExecuting ? <Pause size={18} /> : <Play size={18} />}
+                {isExecuting ? 'Running...' : isFinished ? 'Selesai!' : 'Jalankan'}
+              </motion.button>
+              
+              <motion.button
+                onClick={reset}
+                className="px-4 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <RotateCcw size={18} />
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Command History */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <h3 className="text-sm font-bold text-gray-400 mb-3">Riwayat Eksekusi</h3>
+            
+            {commandHistory.length === 0 ? (
+              <div className="text-gray-500 text-sm italic text-center py-8">
+                <p>Belum ada perintah dijalankan...</p>
+                <p className="text-xs mt-2">Mulai navigasi dari START ke FINISH!</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {commandHistory.map((item, idx) => (
+                  <div 
+                    key={idx}
+                    className={`p-2 rounded-lg text-sm font-mono ${
+                      item.status === 'done' ? 'bg-green-900/30 text-green-400 border border-green-700' :
+                      item.status === 'error' ? 'bg-red-900/30 text-red-400 border border-red-700' :
+                      'bg-amber-900/30 text-amber-400 border border-amber-700'
+                    }`}
+                  >
+                    <span className="opacity-50 mr-2">{idx + 1}.</span>
+                    {item.cmd}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Info Jejak */}
+          <div className="p-3 bg-gray-900/50 border-t border-gray-700">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400">Panjang Jejak:</span>
+              <span className="text-amber-400 font-mono font-bold">{trail.length - 1} segmen</span>
+            </div>
+            <div className="flex items-center justify-between text-xs mt-1">
+              <span className="text-gray-400">Total Jarak:</span>
+              <span className="text-teal-400 font-mono font-bold">
+                {(trail.length > 1 ? 
+                  (Math.sqrt(
+                    Math.pow(trail[trail.length-1][0] - trail[0][0], 2) + 
+                    Math.pow(trail[trail.length-1][1] - trail[0][1], 2)
+                  ) * 111).toFixed(2) : 0)} km
+              </span>
+            </div>
+          </div>
+
+          {/* Help */}
+          <div className="p-4 bg-gray-900 border-t border-gray-700">
+            <h4 className="text-xs font-bold text-gray-400 mb-2">PERINTAH YANG TERSEDIA:</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+              <div><span className="text-teal-400">forward</span> / <span className="text-teal-400">fd</span> [m]</div>
+              <div><span className="text-teal-400">backward</span> / <span className="text-teal-400">bk</span> [m]</div>
+              <div><span className="text-teal-400">left</span> / <span className="text-teal-400">lt</span> [°]</div>
+              <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 italic">
+              Batas sungai dari data GeoJSON
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Victory Modal */}
+      <AnimatePresence>
+        {isFinished && (
+          <motion.div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl"
+              initial={{ scale: 0.5, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+            >
+              <motion.div 
+                className="w-24 h-24 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden"
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 0.5, repeat: 2 }}
+              >
+                <img src={turtleImage} alt="Kura-kura" className="w-16 h-16 object-contain" />
+              </motion.div>
+              
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">Level Selesai! 🎉</h2>
+              <p className="text-gray-600 mb-6">Kura-kura berhasil mencapai FINISH!</p>
+              
+              <div className="bg-gray-100 rounded-2xl p-4 mb-6">
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Waktu Penyelesaian</p>
+                  <p className="text-4xl font-bold text-teal-600 font-mono mt-1">{formatTime(elapsedTime)}</p>
+                </div>
+                <div className="flex justify-between mt-3 text-xs">
+                  <span className="text-gray-500">Panjang Jejak:</span>
+                  <span className="text-amber-600 font-bold">{trail.length - 1} segmen</span>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate('/sungai')}
+                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-colors"
+                >
+                  Kembali
+                </button>
+                <button
+                  onClick={reset}
+                  className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors"
+                >
+                  Main Lagi
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default SungaiBarito;
