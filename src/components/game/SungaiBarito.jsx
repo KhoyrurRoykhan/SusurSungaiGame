@@ -531,6 +531,7 @@ const SungaiBarito = () => {
               <img src={turtleImage} alt="🐢" className="w-6 h-6" />
               Sungai Barito - Pulau Kembang
             </h1>
+            <p className="text-xs text-gray-400">Hindari Pulau Kembang (coklat)!</p>
           </div>
         </div>
 
@@ -734,6 +735,26 @@ const SungaiBarito = () => {
                 </div>
             </div>
           </div>
+
+          {/* Trail Controls */}
+          <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur p-3 rounded-xl shadow-lg z-[1000] flex gap-2">
+            <button
+              onClick={() => setShowTrail(!showTrail)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
+                showTrail 
+                  ? 'bg-amber-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {showTrail ? '👁️' : '👁️‍🗨️'} Jejak
+            </button>
+            <button
+              onClick={clearTrail}
+              className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+            >
+              <Eraser size={14} /> Hapus
+            </button>
+          </div>
         </div>
 
         {/* Control Panel */}
@@ -750,7 +771,7 @@ const SungaiBarito = () => {
               value={commands}
               onChange={(e) => setCommands(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`forward 100\nleft 90\nforward 50\nright 45\nbackward 30\n\nTekan Enter untuk menjalankan`}
+              placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\nright 45\nbackward 30\n\nTekan Enter untuk menjalankan`}
               className="w-full h-36 bg-gray-900 text-green-400 font-mono text-sm p-3 rounded-lg border border-gray-600 focus:border-teal-500 focus:outline-none resize-none"
               disabled={isExecuting}
               autoFocus // Auto focus saat komponen dimuat
@@ -785,6 +806,15 @@ const SungaiBarito = () => {
               </motion.button>
             </div>
             
+            {/* Informasi shortcut */}
+            <div className="flex justify-between items-center mt-2">
+              <p className="text-xs text-gray-500 italic">
+                ⚡ Kode akan dihapus & fokus kembali
+              </p>
+              <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">
+                Enter ⏎
+              </span>
+            </div>
           </div>
 
           {/* Command History */}
@@ -842,6 +872,12 @@ const SungaiBarito = () => {
               <div><span className="text-teal-400">left</span> / <span className="text-teal-400">lt</span> [°]</div>
               <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
             </div>
+            <p className="text-xs text-gray-500 mt-2 italic">
+              💡 Tekan Enter untuk menjalankan perintah (fokus otomatis)
+            </p>
+            <p className="text-xs text-gray-500 italic">
+              Hindari area berwarna coklat (Pulau Kembang)!
+            </p>
           </div>
         </div>
       </div>
