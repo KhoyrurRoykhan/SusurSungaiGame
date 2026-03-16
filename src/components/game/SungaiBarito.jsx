@@ -178,10 +178,10 @@ const polygonStyle = {
 
 // Style untuk obstacle (Pulau Kembang)
 const obstacleStyle = {
-  color: '#8B4513', // Warna coklat
+  // color: '#8B4513', // Warna coklat
   weight: 2,
   opacity: 0.9,
-  fillColor: '#8B4513',
+  // fillColor: '#8B4513',
   fillOpacity: 0.6,
   dashArray: null // Garis lurus
 };
