@@ -250,11 +250,29 @@ const LandingPage = () => {
       </div>
 
       {/* Wave Layers - Bottom */}
-      <div className="absolute bottom-0 left-0 w-full h-32 pointer-events-none">
-        <Wave color="#0d9488" speed={25} opacity={0.3} offset={0} />
-        <Wave color="#0f766e" speed={18} opacity={0.5} offset={15} />
-        <Wave color="#134e4a" speed={12} opacity={0.8} offset={30} />
-      </div>
+        <div class="river">
+
+        <svg viewBox="0 0 2880 120">
+{/* 
+        <!-- gelombang belakang --> */}
+        <path class="wave1" d="M0,45 C150,75 300,15 450,45 C600,75 750,15 900,45 C1050,75 1200,15 1440,45 C1590,75 1740,15 1890,45 C2040,75 2190,15 2340,45 C2490,75 2640,15 2880,45 L2880,1000 L0,1000 Z"/>
+
+        {/* <!-- gelombang depan --> */}
+        <path class="wave2" d="M0,55 C150,25 300,65 450,55 C600,25 750,65 900,55 C1050,25 1200,65 1440,55 C1590,25 1740,65 1890,55 C2040,25 2190,65 2340,55 C2490,25 2640,65 2880,55 L2880,1000 L0,1000 Z"/>
+
+        {/* <!-- busa --> */}
+        <path class="foam" d="M0,55 C150,75 300,45 450,55 C600,75 750,45 900,55 C1050,75 1200,45 1440,55 C1590,75 1740,45 1890,55 C2040,75 2190,45 2340,55 C2490,75 2640,45 2880,55"/>
+
+        </svg>
+
+        <div class="splash">
+        <div class="drop"></div>
+        <div class="drop"></div>
+        <div class="drop"></div>
+        <div class="drop"></div>
+        </div>
+
+        </div>
 
       {/* Footer Info */}
       <motion.div 
