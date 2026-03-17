@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+// Import gambar acil terapung
+import acil_terapung from './game/assets/acil_terapung.png';
+
 
 // Animated Wave Component
 const Wave = ({ color, speed, opacity, offset }) => {
@@ -117,6 +120,24 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+};
+
+// ✅ TAMBAHKAN DI SINI
+const FloatingMarketBoat = ({ delay = 0, bottom = 20, scale = 1 }) => {
+  return (
+    <div 
+      className="boat-move"
+      style={{ 
+        animationDelay: `${delay}s`,
+        bottom: `${bottom}px`,
+        transform: `scale(${scale})`
+      }}
+    >
+      <div className="boat-float">
+        <img src={acil_terapung} alt="perahu" className="boat-img" />
+      </div>
+    </div>
   );
 };
 
@@ -249,30 +270,36 @@ const LandingPage = () => {
         </motion.div>
       </div>
 
+      {/* Floating Market Boats */}
+      <FloatingMarketBoat delay={0} bottom={5} />
+      <FloatingMarketBoat delay={5} bottom={10} />
+      <FloatingMarketBoat delay={10} bottom={-15} />
+      <FloatingMarketBoat delay={15} bottom={20} />
+
       {/* Wave Layers - Bottom */}
-        <div class="river">
+      <div className="river">
 
         <svg viewBox="0 0 2880 120">
-{/* 
-        <!-- gelombang belakang --> */}
-        <path class="wave1" d="M0,45 C150,75 300,15 450,45 C600,75 750,15 900,45 C1050,75 1200,15 1440,45 C1590,75 1740,15 1890,45 C2040,75 2190,15 2340,45 C2490,75 2640,15 2880,45 L2880,1000 L0,1000 Z"/>
+
+        {/* <!-- gelombang belakang --> */}
+        <path className="wave1" d="M0,45 C150,75 300,15 450,45 C600,75 750,15 900,45 C1050,75 1200,15 1440,45 C1590,75 1740,15 1890,45 C2040,75 2190,15 2340,45 C2490,75 2640,15 2880,45 L2880,1000 L0,1000 Z"/>
 
         {/* <!-- gelombang depan --> */}
-        <path class="wave2" d="M0,55 C150,25 300,65 450,55 C600,25 750,65 900,55 C1050,25 1200,65 1440,55 C1590,25 1740,65 1890,55 C2040,25 2190,65 2340,55 C2490,25 2640,65 2880,55 L2880,1000 L0,1000 Z"/>
+        <path className="wave2" d="M0,55 C150,25 300,65 450,55 C600,25 750,65 900,55 C1050,25 1200,65 1440,55 C1590,25 1740,65 1890,55 C2040,25 2190,65 2340,55 C2490,25 2640,65 2880,55 L2880,1000 L0,1000 Z"/>
 
         {/* <!-- busa --> */}
-        <path class="foam" d="M0,55 C150,75 300,45 450,55 C600,75 750,45 900,55 C1050,75 1200,45 1440,55 C1590,75 1740,45 1890,55 C2040,75 2190,45 2340,55 C2490,75 2640,45 2880,55"/>
+        <path className="foam" d="M0,55 C150,75 300,45 450,55 C600,75 750,45 900,55 C1050,75 1200,45 1440,55 C1590,75 1740,45 1890,55 C2040,75 2190,45 2340,55 C2490,75 2640,45 2880,55"/>
 
         </svg>
 
-        <div class="splash">
-        <div class="drop"></div>
-        <div class="drop"></div>
-        <div class="drop"></div>
-        <div class="drop"></div>
+        <div className="splash">
+        <div className="drop"></div>
+        <div className="drop"></div>
+        <div className="drop"></div>
+        <div className="drop"></div>
         </div>
 
-        </div>
+      </div>
 
       {/* Footer Info */}
       <motion.div 
