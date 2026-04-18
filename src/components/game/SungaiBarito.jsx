@@ -18,6 +18,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { LayersControl } from 'react-leaflet';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
@@ -557,10 +558,24 @@ const SungaiBarito = () => {
             style={{ height: '100%', width: '100%' }}
             ref={mapRef}
           >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; OpenStreetMap contributors'
-            />
+          <LayersControl position="topleft">
+            
+            <LayersControl.BaseLayer checked name="Satelit ESRI">
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                attribution="Tiles © Esri"
+              />
+            </LayersControl.BaseLayer>
+
+            <LayersControl.BaseLayer name="OpenStreetMap">
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="&copy; OpenStreetMap contributors"
+              />
+            </LayersControl.BaseLayer>
+
+          </LayersControl>
+            
             
             {/* Komponen untuk mengikuti kura-kura */}
             <FollowTurtle position={turtlePos} />
