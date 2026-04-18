@@ -22,7 +22,7 @@ import 'leaflet/dist/leaflet.css';
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
 // Import file GeoJSON
-import sungaiBaritoGeoJSON from './geojson/sungabarito.json';
+import sungaiBaritoGeoJSON from './geojson/sungaialalak.json';
 import pulauKembangGeoJSON from './geojson/Pulau_Kembang.json';
 
 // Fix Leaflet default icons
@@ -163,8 +163,8 @@ const findExtremePoints = (coordinates) => {
 const { southPoint, northPoint } = findExtremePoints(batasSungai);
 
 // Titik Start (bawah/selatan) dan Finish (atas/utara)
-const startPoint = [-3.3606, 114.5229]; // Titik paling selatan sebagai START
-const finishPoint = [-3.2819, 114.5665]; // Titik paling utara sebagai FINISH
+const startPoint = [-3.2814, 114.5667]; // Titik paling selatan sebagai START
+const finishPoint = [-3.2884, 114.6008]; // Titik paling utara sebagai FINISH
 
 
 // Style untuk polygon GeoJSON - Hanya garis
@@ -227,15 +227,14 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
-const SungaiBarito = () => {
-  const [alertMsg, setAlertMsg] = useState(null); // State untuk popup alert
-
-  const navigate = useNavigate();
+const SungaiAlalak = () => {
+    const navigate = useNavigate();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
   const obstacleRef = useRef(null);
   const textareaRef = useRef(null); // Ref untuk textarea
+  const [alertMsg, setAlertMsg] = useState(null); // State untuk popup alert
   
   // Turtle State - mulai dari startPoint
   const [turtlePos, setTurtlePos] = useState(startPoint);
@@ -251,49 +250,6 @@ const SungaiBarito = () => {
   // State untuk jejak perjalanan
   const [trail, setTrail] = useState([startPoint]); // Mulai dengan titik start
   const [showTrail, setShowTrail] = useState(true);
-
-  const findBoundaryPoint = (start, target) => {
-    // Hitung jarak antara start dan target (dalam meter)
-    const lat1 = start[0];
-    const lng1 = start[1];
-    const lat2 = target[0];
-    const lng2 = target[1];
-    
-    // Konversi ke radian untuk perhitungan jarak
-    const R = 6371000; // Radius bumi dalam meter
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lng2 - lng1) * Math.PI / 180;
-    
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const totalDistance = R * c; // dalam meter
-    
-    if (totalDistance === 0) return start;
-    
-    // Iterasi dengan step 1 meter
-    const step = 1; // meter
-    const steps = Math.ceil(totalDistance / step);
-    let lastValid = start;
-    
-    for (let i = 1; i <= steps; i++) {
-      const fraction = i / steps;
-      const currentLat = lat1 + (lat2 - lat1) * fraction;
-      const currentLng = lng1 + (lng2 - lng1) * fraction;
-      const currentPoint = [currentLat, currentLng];
-      
-      if (isValidPosition(currentPoint)) {
-        lastValid = currentPoint;
-      } else {
-        // Titik ini tidak valid, berhenti
-        break;
-      }
-    }
-    return lastValid;
-  };
 
   // Timer
   useEffect(() => {
@@ -345,6 +301,50 @@ const SungaiBarito = () => {
     );
     // Threshold ~100m
     return distToFinish < 0.001;
+  };
+
+  // Fungsi untuk mencari titik mentok di batas sungai/pulau
+  const findBoundaryPoint = (start, target) => {
+    // Hitung jarak antara start dan target (dalam meter)
+    const lat1 = start[0];
+    const lng1 = start[1];
+    const lat2 = target[0];
+    const lng2 = target[1];
+    
+    // Konversi ke radian untuk perhitungan jarak
+    const R = 6371000; // Radius bumi dalam meter
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+    
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const totalDistance = R * c; // dalam meter
+    
+    if (totalDistance === 0) return start;
+    
+    // Iterasi dengan step 1 meter
+    const step = 1; // meter
+    const steps = Math.ceil(totalDistance / step);
+    let lastValid = start;
+    
+    for (let i = 1; i <= steps; i++) {
+      const fraction = i / steps;
+      const currentLat = lat1 + (lat2 - lat1) * fraction;
+      const currentLng = lng1 + (lng2 - lng1) * fraction;
+      const currentPoint = [currentLat, currentLng];
+      
+      if (isValidPosition(currentPoint)) {
+        lastValid = currentPoint;
+      } else {
+        // Titik ini tidak valid, berhenti
+        break;
+      }
+    }
+    return lastValid;
   };
 
   // Modifikasi executeCommand untuk forward, backward, goto
@@ -579,7 +579,7 @@ const SungaiBarito = () => {
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <img src={turtleImage} alt="🐢" className="w-6 h-6" />
-              Sungai Barito - Pulau Kembang
+              Sungai Alalak
             </h1>
           </div>
         </div>
@@ -603,7 +603,7 @@ const SungaiBarito = () => {
         <div className="flex-1 relative">
           <MapContainer
             center={turtlePos} // Center mengikuti posisi kura-kura
-            zoom={15} // Zoom lebih dekat
+            zoom={18} // Zoom lebih dekat
             style={{ height: '100%', width: '100%' }}
             ref={mapRef}
           >
@@ -643,19 +643,19 @@ const SungaiBarito = () => {
 
             {/* Alert Popup */}
             <AnimatePresence>
-              {alertMsg && (
+                {alertMsg && (
                 <motion.div
-                  className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[2000]"
-                  initial={{ opacity: 0, y: -50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -50 }}
+                    className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[2000]"
+                    initial={{ opacity: 0, y: -50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -50 }}
                 >
-                  <div className="bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-red-400">
+                    <div className="bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-red-400">
                     <AlertCircle size={24} />
                     <span className="font-medium">{alertMsg}</span>
-                  </div>
+                    </div>
                 </motion.div>
-              )}
+                )}
             </AnimatePresence>
             
             {/* Jejak Perjalanan */}
@@ -968,7 +968,7 @@ const SungaiBarito = () => {
         )}
       </AnimatePresence>
     </div>
-  );
-};
+  )
+}
 
-export default SungaiBarito;
+export default SungaiAlalak
