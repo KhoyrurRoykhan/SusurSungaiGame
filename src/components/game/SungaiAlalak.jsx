@@ -368,7 +368,7 @@ const SungaiAlalak = () => {
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
             // Tampilkan alert popup
-            setAlertMsg("⚠️ Kura-kura mentok di batas sungai atau pulau! Perintah tidak dapat dilanjutkan.");
+            setAlertMsg("⚠️ Kura-kura keluar sungai! Perintah tidak dapat dilanjutkan.");
             // Hapus alert setelah 3 detik
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Perintah melebihi batas wilayah');
@@ -394,7 +394,7 @@ const SungaiAlalak = () => {
             await animateMove(boundaryPos);
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
-            setAlertMsg("⚠️ Kura-kura mentok di batas sungai atau pulau! Perintah tidak dapat dilanjutkan.");
+            setAlertMsg("⚠️ Kura-kura keluar batas sungai! Perintah tidak dapat dilanjutkan.");
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Perintah melebihi batas wilayah');
           } else {
@@ -804,14 +804,6 @@ const SungaiAlalak = () => {
                   width: '24px'
                 }}></div>
                 <span className="text-gray-700">Batas Sungai</span>
-                </div>
-                <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-[#8B4513] rounded" style={{ 
-                  background: '#8B4513',
-                  opacity: 0.6,
-                  border: '2px solid #5D3A1A'
-                }}></div>
-                <span className="text-gray-700">Pulau Kembang (Obstacle)</span>
                 </div>
             </div>
           </div>
