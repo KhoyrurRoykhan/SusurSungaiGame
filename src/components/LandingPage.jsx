@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Turtle, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-import bg_sungai from './game/assets/landingpage.png';
+import bg_sungai from './game/assets/bg_terbaru.png';
 
 /* =========================
    MODAL
