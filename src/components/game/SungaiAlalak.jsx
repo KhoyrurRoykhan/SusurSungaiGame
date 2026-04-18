@@ -18,6 +18,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { LayersControl } from 'react-leaflet';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
