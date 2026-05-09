@@ -22,9 +22,8 @@ import { LayersControl } from 'react-leaflet';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
-// Import file GeoJSON
+// Import file GeoJSON (hanya sungai)
 import sungaiBaritoGeoJSON from './geojson/sungaimartapura-dekatbarito.json';
-import pulauKembangGeoJSON from './geojson/Pulau_Kembang.json';
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -118,30 +117,25 @@ const extractCoordinates = (geojson) => {
   if (geojson.features && geojson.features.length > 0) {
     const feature = geojson.features[0];
     if (feature.geometry.type === 'Polygon') {
-      // Untuk Polygon, ambil ring pertama (biasanya yang terluar)
       return feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
     } else if (feature.geometry.type === 'MultiPolygon') {
-      // Untuk MultiPolygon, ambil ring pertama dari polygon pertama
       return feature.geometry.coordinates[0][0].map(coord => [coord[1], coord[0]]);
     }
   }
   return [];
 };
 
-// Ekstrak koordinat dari GeoJSON
+// Ekstrak koordinat dari GeoJSON sungai
 const batasSungai = extractCoordinates(sungaiBaritoGeoJSON);
-const pulauKembang = extractCoordinates(pulauKembangGeoJSON);
 
 // Fungsi untuk menghitung titik tengah dari array koordinat
 const calculateCenter = (coordinates) => {
   if (coordinates.length === 0) return [-3.305, 114.555];
-  
   let latSum = 0, lngSum = 0;
   coordinates.forEach(coord => {
     latSum += coord[0];
     lngSum += coord[1];
   });
-  
   return [latSum / coordinates.length, lngSum / coordinates.length];
 };
 
@@ -150,71 +144,31 @@ const centerPoint = calculateCenter(batasSungai);
 
 // Fungsi untuk mencari titik terendah (paling selatan) dan tertinggi (paling utara)
 const findExtremePoints = (coordinates) => {
-  let southPoint = coordinates[0]; // Lowest latitude (paling selatan)
-  let northPoint = coordinates[0]; // Highest latitude (paling utara)
-  
+  let southPoint = coordinates[0];
+  let northPoint = coordinates[0];
   coordinates.forEach(coord => {
-    if (coord[0] < southPoint[0]) southPoint = coord; // Lebih kecil = lebih selatan
-    if (coord[0] > northPoint[0]) northPoint = coord; // Lebih besar = lebih utara
+    if (coord[0] < southPoint[0]) southPoint = coord;
+    if (coord[0] > northPoint[0]) northPoint = coord;
   });
-  
   return { southPoint, northPoint };
 };
 
 const { southPoint, northPoint } = findExtremePoints(batasSungai);
 
 // Titik Start (bawah/selatan) dan Finish (atas/utara)
-const startPoint = [-3.3438, 114.5701]; // Titik paling selatan sebagai START
-const finishPoint = [-3.3518, 114.5392]; // Titik paling utara sebagai FINISH
+const startPoint = [-3.3438, 114.5701];
+const finishPoint = [-3.3518, 114.5392];
 
-
-// Style untuk polygon GeoJSON - Hanya garis
+// Style untuk polygon sungai - Hanya garis
 const polygonStyle = {
   color: '#0ea5e9',
   weight: 3,
   opacity: 0.8,
-  fillOpacity: 0, // Tidak ada fill
+  fillOpacity: 0,
   dashArray: '5, 10'
 };
 
-// Style untuk obstacle (Pulau Kembang)
-const obstacleStyle = {
-  // color: '#8B4513', // Warna coklat
-  weight: 2,
-  opacity: 0.9,
-  // fillColor: '#8B4513',
-  fillOpacity: 0.6,
-  dashArray: null // Garis lurus
-};
-
-// Fungsi untuk mengecek apakah titik berada di dalam obstacle
-const isPointInObstacle = (point, obstacle) => {
-  const x = point[1], y = point[0];
-  let inside = false;
-  for (let i = 0, j = obstacle.length - 1; i < obstacle.length; j = i++) {
-    const xi = obstacle[i][1], yi = obstacle[i][0];
-    const xj = obstacle[j][1], yj = obstacle[j][0];
-    const intersect = ((yi > y) !== (yj > y)) &&
-      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-};
-
-// Fungsi untuk mengecek apakah titik valid (di dalam sungai dan tidak di obstacle)
-const isValidPosition = (point) => {
-  // Cek apakah di dalam batas sungai
-  const inRiver = isPointInPolygon(point, batasSungai);
-  if (!inRiver) return false;
-  
-  // Cek apakah di obstacle (Pulau Kembang)
-  const inObstacle = isPointInObstacle(point, pulauKembang);
-  if (inObstacle) return false;
-  
-  return true;
-};
-
-// Fungsi untuk mengecek titik di dalam polygon (untuk batas sungai)
+// Fungsi untuk mengecek titik di dalam polygon (batas sungai)
 const isPointInPolygon = (point, polygon) => {
   const x = point[1], y = point[0];
   let inside = false;
@@ -228,16 +182,60 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
+// Fungsi untuk mengecek apakah titik valid (hanya di dalam sungai)
+const isValidPosition = (point) => {
+  return isPointInPolygon(point, batasSungai);
+};
+
+// Fungsi untuk mencari titik mentok di batas sungai
+const findBoundaryPoint = (start, target) => {
+  const lat1 = start[0];
+  const lng1 = start[1];
+  const lat2 = target[0];
+  const lng2 = target[1];
+  
+  const R = 6371000;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lng2 - lng1) * Math.PI / 180;
+  
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const totalDistance = R * c;
+  
+  if (totalDistance === 0) return start;
+  
+  const step = 1;
+  const steps = Math.ceil(totalDistance / step);
+  let lastValid = start;
+  
+  for (let i = 1; i <= steps; i++) {
+    const fraction = i / steps;
+    const currentLat = lat1 + (lat2 - lat1) * fraction;
+    const currentLng = lng1 + (lng2 - lng1) * fraction;
+    const currentPoint = [currentLat, currentLng];
+    
+    if (isValidPosition(currentPoint)) {
+      lastValid = currentPoint;
+    } else {
+      break;
+    }
+  }
+  return lastValid;
+};
+
 const SungaiMartapura = () => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
-  const obstacleRef = useRef(null);
-  const textareaRef = useRef(null); // Ref untuk textarea
-  const [alertMsg, setAlertMsg] = useState(null); // State untuk popup alert
+  const textareaRef = useRef(null);
+  const [alertMsg, setAlertMsg] = useState(null);
   
-  // Turtle State - mulai dari startPoint
+  // Turtle State
   const [turtlePos, setTurtlePos] = useState(startPoint);
   const [turtleAngle, setTurtleAngle] = useState(0);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -248,8 +246,7 @@ const SungaiMartapura = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   
-  // State untuk jejak perjalanan
-  const [trail, setTrail] = useState([startPoint]); // Mulai dengan titik start
+  const [trail, setTrail] = useState([startPoint]);
   const [showTrail, setShowTrail] = useState(true);
 
   // Timer
@@ -278,9 +275,8 @@ const SungaiMartapura = () => {
     }
   }, []);
 
-  // Effect untuk memfokuskan textarea setelah eksekusi selesai
+  // Fokus ke textarea setelah eksekusi selesai
   useEffect(() => {
-    // Jika tidak sedang executing dan textarea ada, fokuskan
     if (!isExecuting && textareaRef.current && !isFinished) {
       textareaRef.current.focus();
     }
@@ -300,55 +296,35 @@ const SungaiMartapura = () => {
       Math.pow(pos[0] - finishPoint[0], 2) + 
       Math.pow(pos[1] - finishPoint[1], 2)
     );
-    // Threshold ~100m
     return distToFinish < 0.001;
   };
 
-  // Fungsi untuk mencari titik mentok di batas sungai/pulau
-  const findBoundaryPoint = (start, target) => {
-    // Hitung jarak antara start dan target (dalam meter)
-    const lat1 = start[0];
-    const lng1 = start[1];
-    const lat2 = target[0];
-    const lng2 = target[1];
-    
-    // Konversi ke radian untuk perhitungan jarak
-    const R = 6371000; // Radius bumi dalam meter
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lng2 - lng1) * Math.PI / 180;
-    
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const totalDistance = R * c; // dalam meter
-    
-    if (totalDistance === 0) return start;
-    
-    // Iterasi dengan step 1 meter
-    const step = 1; // meter
-    const steps = Math.ceil(totalDistance / step);
-    let lastValid = start;
-    
-    for (let i = 1; i <= steps; i++) {
-      const fraction = i / steps;
-      const currentLat = lat1 + (lat2 - lat1) * fraction;
-      const currentLng = lng1 + (lng2 - lng1) * fraction;
-      const currentPoint = [currentLat, currentLng];
+  // Animate movement
+  const animateMove = (targetPos) => {
+    return new Promise((resolve) => {
+      const startPos = [...turtlePos];
+      const steps = 20;
+      let currentStep = 0;
       
-      if (isValidPosition(currentPoint)) {
-        lastValid = currentPoint;
-      } else {
-        // Titik ini tidak valid, berhenti
-        break;
-      }
-    }
-    return lastValid;
+      const interval = setInterval(() => {
+        currentStep++;
+        const progress = currentStep / steps;
+        const currentLat = startPos[0] + (targetPos[0] - startPos[0]) * progress;
+        const currentLng = startPos[1] + (targetPos[1] - startPos[1]) * progress;
+        
+        setTurtlePos([currentLat, currentLng]);
+        
+        if (currentStep >= steps) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 50);
+    });
   };
 
-  // Modifikasi executeCommand untuk forward, backward, goto
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Execute single command
   const executeCommand = async (cmd) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
@@ -361,15 +337,12 @@ const SungaiMartapura = () => {
         const targetPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle, value);
         
         if (!isValidPosition(targetPos)) {
-          // Cari titik mentok
           const boundaryPos = findBoundaryPoint(turtlePos, targetPos);
           if (boundaryPos[0] !== turtlePos[0] || boundaryPos[1] !== turtlePos[1]) {
             await animateMove(boundaryPos);
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
-            // Tampilkan alert popup
             setAlertMsg("⚠️ Kura-kura keluar sungai! Perintah tidak dapat dilanjutkan.");
-            // Hapus alert setelah 3 detik
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Perintah melebihi batas wilayah');
           } else {
@@ -394,7 +367,7 @@ const SungaiMartapura = () => {
             await animateMove(boundaryPos);
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
-            setAlertMsg("⚠️ Kura-kura keluar batas sungai! Perintah tidak dapat dilanjutkan.");
+            setAlertMsg("⚠️ Kura-kura keluar sungai! Perintah tidak dapat dilanjutkan.");
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Perintah melebihi batas wilayah');
           } else {
@@ -459,31 +432,6 @@ const SungaiMartapura = () => {
     }
   };
 
-  // Animate movement
-  const animateMove = (targetPos) => {
-    return new Promise((resolve) => {
-      const startPos = [...turtlePos];
-      const steps = 20;
-      let currentStep = 0;
-      
-      const interval = setInterval(() => {
-        currentStep++;
-        const progress = currentStep / steps;
-        const currentLat = startPos[0] + (targetPos[0] - startPos[0]) * progress;
-        const currentLng = startPos[1] + (targetPos[1] - startPos[1]) * progress;
-        
-        setTurtlePos([currentLat, currentLng]);
-        
-        if (currentStep >= steps) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 50);
-    });
-  };
-
-  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
   // Run all commands
   const runCommands = async () => {
     if (!commands.trim() || isExecuting || isFinished) return;
@@ -507,32 +455,23 @@ const SungaiMartapura = () => {
         history[history.length - 1].status = 'done';
         setCommandHistory([...history]);
       }
-      
     } catch (err) {
       setError(err.message);
-      history[history.length - 1].status = 'error';
+      if (history.length) history[history.length - 1].status = 'error';
       setCommandHistory([...history]);
     }
     
     setIsExecuting(false);
-    
-    // Hapus semua kode di terminal setelah selesai dieksekusi
     setCommands('');
-    
-    // Fokus kembali ke textarea setelah state diupdate
-    // useEffect akan menangani fokus karena isExecuting berubah
   };
 
-  // Handler untuk key down di textarea
   const handleKeyDown = (e) => {
-    // Cek jika tombol Enter ditekan tanpa Shift
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // Mencegah new line
-      runCommands(); // Jalankan perintah
+      e.preventDefault();
+      runCommands();
     }
   };
 
-  // Reset
   const reset = () => {
     setTurtlePos(startPoint);
     setTurtleAngle(0);
@@ -542,19 +481,15 @@ const SungaiMartapura = () => {
     setStartTime(null);
     setElapsedTime(0);
     setIsFinished(false);
-    setTrail([startPoint]); // Reset jejak ke titik start saja
+    setTrail([startPoint]);
     
-    // Fokus ke textarea setelah reset
     setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
+      if (textareaRef.current) textareaRef.current.focus();
     }, 100);
   };
 
-  // Hapus jejak
   const clearTrail = () => {
-    setTrail([turtlePos]); // Set jejak hanya dengan posisi saat ini
+    setTrail([turtlePos]);
   };
 
   const formatTime = (seconds) => {
@@ -603,73 +538,63 @@ const SungaiMartapura = () => {
         {/* Map */}
         <div className="flex-1 relative">
           <MapContainer
-            center={turtlePos} // Center mengikuti posisi kura-kura
-            zoom={17} // Zoom lebih dekat
+            center={turtlePos}
+            zoom={17}
             style={{ height: '100%', width: '100%' }}
             ref={mapRef}
           >
             <LayersControl position="topleft">
-            
-            <LayersControl.BaseLayer checked name="Satelit ESRI">
-              <TileLayer
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                attribution="Tiles © Esri"
-              />
-            </LayersControl.BaseLayer>
+              <LayersControl.BaseLayer checked name="Satelit ESRI">
+                <TileLayer
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  attribution="Tiles © Esri"
+                />
+              </LayersControl.BaseLayer>
 
-            <LayersControl.BaseLayer name="OpenStreetMap">
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution="&copy; OpenStreetMap contributors"
-              />
-            </LayersControl.BaseLayer>
-
-          </LayersControl>
+              <LayersControl.BaseLayer name="OpenStreetMap">
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="&copy; OpenStreetMap contributors"
+                />
+              </LayersControl.BaseLayer>
+            </LayersControl>
             
-            {/* Komponen untuk mengikuti kura-kura */}
             <FollowTurtle position={turtlePos} />
             
-            {/* River Boundary dari GeoJSON - Hanya garis */}
+            {/* River Boundary dari GeoJSON */}
             <GeoJSON 
               data={sungaiBaritoGeoJSON}
               style={polygonStyle}
               ref={geojsonRef}
             />
             
-            {/* Pulau Kembang sebagai obstacle */}
-            <GeoJSON 
-              data={pulauKembangGeoJSON}
-              style={obstacleStyle}
-              ref={obstacleRef}
-            />
-            
-            {/* Polygon untuk kompatibilitas dengan fungsi isPointInPolygon - juga hanya garis */}
+            {/* Polygon untuk kompatibilitas dengan fungsi isPointInPolygon */}
             <Polygon 
               positions={batasSungai}
               pathOptions={{ 
                 color: '#0ea5e9', 
                 weight: 3,
                 opacity: 0.8,
-                fillOpacity: 0, // Transparan penuh, hanya garis
+                fillOpacity: 0,
                 dashArray: '5, 10'
               }}
             />
 
             {/* Alert Popup */}
             <AnimatePresence>
-                {alertMsg && (
+              {alertMsg && (
                 <motion.div
-                    className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[2000]"
-                    initial={{ opacity: 0, y: -50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -50 }}
+                  className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[2000]"
+                  initial={{ opacity: 0, y: -50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -50 }}
                 >
-                    <div className="bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-red-400">
+                  <div className="bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-red-400">
                     <AlertCircle size={24} />
                     <span className="font-medium">{alertMsg}</span>
-                    </div>
+                  </div>
                 </motion.div>
-                )}
+              )}
             </AnimatePresence>
             
             {/* Jejak Perjalanan */}
@@ -681,13 +606,12 @@ const SungaiMartapura = () => {
                   weight: 4,
                   opacity: 0.8,
                   lineCap: 'round',
-                  lineJoin: 'round',
-                  dashArray: null
+                  lineJoin: 'round'
                 }}
               />
             )}
             
-            {/* Titik-titik jejak (opsional) */}
+            {/* Titik-titik jejak */}
             {showTrail && trail.map((point, index) => (
               index > 0 && index < trail.length - 1 && (
                 <Marker 
@@ -734,7 +658,7 @@ const SungaiMartapura = () => {
               </Popup>
             </Marker>
             
-            {/* Kura-kura dengan gambar dan arah yang bisa berputar */}
+            {/* Kura-kura */}
             <Marker 
               position={turtlePos}
               icon={createTurtleIcon(turtleAngle)}
@@ -763,14 +687,14 @@ const SungaiMartapura = () => {
           <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-xl border-2 border-teal-500 z-[1000]">
             <div className="text-sm font-bold text-gray-800 mb-2 text-center">Arah Kura-kura</div>
             <div 
-                className="w-20 h-20 border-4 border-teal-500 rounded-full flex items-center justify-center relative bg-teal-50"
-                style={{ transform: `rotate(${turtleAngle}deg)` }}
+              className="w-20 h-20 border-4 border-teal-500 rounded-full flex items-center justify-center relative bg-teal-50"
+              style={{ transform: `rotate(${turtleAngle}deg)` }}
             >
-                <div className="absolute -top-3 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-teal-600" />
-                <div className="w-3 h-3 bg-teal-600 rounded-full" />
+              <div className="absolute -top-3 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-teal-600" />
+              <div className="w-3 h-3 bg-teal-600 rounded-full" />
             </div>
             <div className="text-center text-lg font-mono font-bold text-teal-700 mt-2">
-                {turtleAngle}°
+              {turtleAngle}°
             </div>
           </div>
 
@@ -778,33 +702,28 @@ const SungaiMartapura = () => {
           <div className="absolute top-4 right-4 bg-white/95 backdrop-blur p-4 rounded-xl shadow-lg z-[1000]">
             <h4 className="font-bold text-gray-800 mb-3 text-sm">Legenda</h4>
             <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-xs border-2 border-white shadow">🏁</div>
                 <span className="text-gray-700">Start</span>
-                </div>
-                <div className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs border-2 border-white shadow">🚩</div>
                 <span className="text-gray-700">Finish (Utara)</span>
-                </div>
-                <div className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white shadow overflow-hidden bg-amber-100">
                   <img src={turtleImage} alt="" className="w-full h-full object-cover" />
                 </div>
                 <span className="text-gray-700">Kura-kura</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-1 bg-amber-500 rounded" style={{ background: '#f59e0b', height: '4px' }}></div>
-                  <span className="text-gray-700">Jejak Perjalanan</span>
-                </div>
-                <div className="flex items-center gap-2">
-                <div className="w-6 h-1 bg-sky-500 rounded" style={{ 
-                  background: 'transparent', 
-                  borderTop: '3px dashed #0ea5e9',
-                  height: '3px',
-                  width: '24px'
-                }}></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-1 bg-amber-500 rounded" style={{ background: '#f59e0b', height: '4px' }}></div>
+                <span className="text-gray-700">Jejak Perjalanan</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-1 bg-sky-500 rounded" style={{ background: 'transparent', borderTop: '3px dashed #0ea5e9', height: '3px', width: '24px' }}></div>
                 <span className="text-gray-700">Batas Sungai</span>
-                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -826,7 +745,7 @@ const SungaiMartapura = () => {
               placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\nright 45\nbackward 30\n\nTekan Enter untuk menjalankan`}
               className="w-full h-36 bg-gray-900 text-green-400 font-mono text-sm p-3 rounded-lg border border-gray-600 focus:border-teal-500 focus:outline-none resize-none"
               disabled={isExecuting}
-              autoFocus // Auto focus saat komponen dimuat
+              autoFocus
             />
             
             {error && (
@@ -857,7 +776,6 @@ const SungaiMartapura = () => {
                 <RotateCcw size={18} />
               </motion.button>
             </div>
-            
           </div>
 
           {/* Command History */}
@@ -867,7 +785,7 @@ const SungaiMartapura = () => {
             {commandHistory.length === 0 ? (
               <div className="text-gray-500 text-sm italic text-center py-8">
                 <p>Belum ada perintah dijalankan...</p>
-                <p className="text-xs mt-2">Mulai navigasi dari START ke FINISH! Hindari Pulau Kembang!</p>
+                <p className="text-xs mt-2">Mulai navigasi dari START ke FINISH!</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -904,6 +822,9 @@ const SungaiMartapura = () => {
                   ) * 111).toFixed(2) : 0)} km
               </span>
             </div>
+            <button onClick={clearTrail} className="mt-2 w-full py-1 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition flex items-center justify-center gap-1">
+              <Eraser size={12} /> Hapus Jejak
+            </button>
           </div>
 
           {/* Help */}
@@ -942,7 +863,7 @@ const SungaiMartapura = () => {
               </motion.div>
               
               <h2 className="text-3xl font-bold text-gray-800 mb-2">Level Selesai! 🎉</h2>
-              <p className="text-gray-600 mb-6">Kura-kura berhasil mencapai FINISH tanpa menabrak pulau!</p>
+              <p className="text-gray-600 mb-6">Kura-kura berhasil mencapai FINISH!</p>
               
               <div className="bg-gray-100 rounded-2xl p-4 mb-6">
                 <div className="text-center">
@@ -974,7 +895,7 @@ const SungaiMartapura = () => {
         )}
       </AnimatePresence>
     </div>
-  )
-}
+  );
+};
 
-export default SungaiMartapura
+export default SungaiMartapura;
