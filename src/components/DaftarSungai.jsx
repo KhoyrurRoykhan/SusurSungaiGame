@@ -20,10 +20,10 @@ import { useNavigate } from 'react-router-dom';
 // sungai
 import GambarSungaiBarito from "./assets/sungaibarito.jpeg";
 import GambarSungaiKuin from "./assets/sungaikuin.jpg";
-import GambarSungaiAlalak from "./assets/sungaibarito.jpeg";
-import GambarSungaiAwang from "./assets/sungaibarito.jpeg";
-import GambarSungaiMartapura from "./assets/sungaibarito.jpeg";
-import GambarSungaiPelambuan from "./assets/sungaibarito.jpeg";
+import GambarSungaiAlalak from "./assets/sungaialalak.jpg";
+import GambarSungaiAwang from "./assets/sungaiawang.jpg";
+import GambarSungaiMartapura from "./assets/sungaimartapura.jpg";
+import GambarSungaiPelambuan from "./assets/sungaipelambuan.jpg";
 
 // Data dummy sungai sebagai level game - SEMUA TERBUKA
 const levelSungai = [
@@ -44,51 +44,6 @@ const levelSungai = [
   },
   {
     id: 2,
-    nama: "Sungai Kuin",
-    lokasi: "Banjarmasin Utara",
-    deskripsi: "Sungai yang terkenal dengan pasar terapungnya, menjadi ikon budaya sungai di Kalimantan Selatan.",
-    gambar: GambarSungaiKuin,
-    status: "terbuka",
-    waktuTerbaik: "08:15",
-    pernahDimainkan: true,
-    skorTertinggi: 720,
-    bintang: 2,
-    tingkatKesulitan: "Mudah",
-    reward: "Badge Petualang",
-    path: "/game/kuin"
-  },
-  {
-    id: 3,
-    nama: "Sungai Kuin (Part 2)",
-    lokasi: "Banjarmasin Utara",
-    deskripsi: "Lanjutan petualangan di Sungai Kuin, telusuri lebih dalam keanekaragaman hayati sungai.",
-    gambar: GambarSungaiKuin,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
-    bintang: 0,
-    tingkatKesulitan: "Sedang",
-    reward: "Badge Explorer",
-    path: "/game/kuin2"
-  },
-  {
-    id: 4,
-    nama: "Sungai Kuin (Part 3)",
-    lokasi: "Banjarmasin Utara",
-    deskripsi: "Tantangan terakhir di Sungai Kuin, uji kemampuan navigasi dan pengetahuanmu.",
-    gambar: GambarSungaiKuin,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
-    bintang: 0,
-    tingkatKesulitan: "Sulit",
-    reward: "Badge Master Sungai",
-    path: "/game/kuin3"
-  },
-  {
-    id: 5,
     nama: "Sungai Alalak",
     lokasi: "Barito Kuala",
     deskripsi: "Sungai yang membelah kota Marabahan, kaya akan ekosistem mangrove dan biota air.",
@@ -103,7 +58,7 @@ const levelSungai = [
     path: "/game/alalak"
   },
   {
-    id: 6,
+    id: 3,
     nama: "Sungai Alalak (Part 2)",
     lokasi: "Barito Kuala",
     deskripsi: "Eksplorasi lebih dalam ekosistem mangrove Sungai Alalak.",
@@ -118,7 +73,7 @@ const levelSungai = [
     path: "/game/alalak2"
   },
   {
-    id: 7,
+    id: 4,
     nama: "Sungai Awang",
     lokasi: "Kandangan - Hulu Sungai Selatan",
     deskripsi: "Sungai yang mengalir di pegunungan Meratus, memiliki air jernih dan pemandangan indah.",
@@ -133,7 +88,7 @@ const levelSungai = [
     path: "/game/awang"
   },
   {
-    id: 8,
+    id: 5,
     nama: "Sungai Martapura",
     lokasi: "Martapura - Banjar",
     deskripsi: "Sungai yang terkenal dengan industri batu permata dan budaya sungai yang masih lestari.",
@@ -145,10 +100,10 @@ const levelSungai = [
     bintang: 0,
     tingkatKesulitan: "Sulit",
     reward: "Badge Budayawan",
-    path: "/game/martapura"
+    path: "/game/martapura4"
   },
   {
-    id: 9,
+    id: 6,
     nama: "Sungai Martapura (Part 2)",
     lokasi: "Martapura - Banjar",
     deskripsi: "Lanjutan petualangan menyusuri keindahan Sungai Martapura.",
@@ -160,10 +115,10 @@ const levelSungai = [
     bintang: 0,
     tingkatKesulitan: "Sulit",
     reward: "Badge Sejarah",
-    path: "/game/martapura2"
+    path: "/game/martapura3"
   },
   {
-    id: 10,
+    id: 7,
     nama: "Sungai Martapura (Part 3)",
     lokasi: "Martapura - Banjar",
     deskripsi: "Tantangan ekstrem di Sungai Martapura, hadapi arus deras.",
@@ -175,10 +130,10 @@ const levelSungai = [
     bintang: 0,
     tingkatKesulitan: "Sulit",
     reward: "Badge Arus Deras",
-    path: "/game/martapura3"
+    path: "/game/martapura2"
   },
   {
-    id: 11,
+    id: 8,
     nama: "Sungai Martapura (Part 4)",
     lokasi: "Martapura - Banjar",
     deskripsi: "Puncak petualangan di Sungai Martapura, uji seluruh kemampuanmu.",
@@ -190,10 +145,10 @@ const levelSungai = [
     bintang: 0,
     tingkatKesulitan: "Legenda",
     reward: "Badge Legenda Martapura",
-    path: "/game/martapura4"
+    path: "/game/martapura"
   },
   {
-    id: 12,
+    id: 9,
     nama: "Sungai Pelambuan",
     lokasi: "Banjarmasin Barat",
     deskripsi: "Sungai yang menjadi kawasan industri dan permukiman tradisional dengan nilai sejarah tinggi.",
@@ -206,7 +161,52 @@ const levelSungai = [
     tingkatKesulitan: "Legenda",
     reward: "Badge Legenda Sungai",
     path: "/game/pelambuan"
-  }
+  },
+  {
+    id: 10,
+    nama: "Sungai Kuin",
+    lokasi: "Banjarmasin Utara",
+    deskripsi: "Sungai yang terkenal dengan pasar terapungnya, menjadi ikon budaya sungai di Kalimantan Selatan.",
+    gambar: GambarSungaiKuin,
+    status: "terbuka",
+    waktuTerbaik: "08:15",
+    pernahDimainkan: true,
+    skorTertinggi: 720,
+    bintang: 2,
+    tingkatKesulitan: "Mudah",
+    reward: "Badge Petualang",
+    path: "/game/kuin"
+  },
+  {
+    id: 11,
+    nama: "Sungai Kuin (Part 2)",
+    lokasi: "Banjarmasin Utara",
+    deskripsi: "Lanjutan petualangan di Sungai Kuin, telusuri lebih dalam keanekaragaman hayati sungai.",
+    gambar: GambarSungaiKuin,
+    status: "terbuka",
+    waktuTerbaik: null,
+    pernahDimainkan: false,
+    skorTertinggi: 0,
+    bintang: 0,
+    tingkatKesulitan: "Sedang",
+    reward: "Badge Explorer",
+    path: "/game/kuin2"
+  },
+  {
+    id: 12,
+    nama: "Sungai Kuin (Part 3)",
+    lokasi: "Banjarmasin Utara",
+    deskripsi: "Tantangan terakhir di Sungai Kuin, uji kemampuan navigasi dan pengetahuanmu.",
+    gambar: GambarSungaiKuin,
+    status: "terbuka",
+    waktuTerbaik: null,
+    pernahDimainkan: false,
+    skorTertinggi: 0,
+    bintang: 0,
+    tingkatKesulitan: "Sulit",
+    reward: "Badge Master Sungai",
+    path: "/game/kuin3"
+  },
 ];
 
 // Star Rating Component
