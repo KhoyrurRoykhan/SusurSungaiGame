@@ -6,11 +6,14 @@ import SungaiAlalak from './components/game/SungaiAlalak';
 import SungaiMartapura from './components/game/SungaiMartapura';
 import SungaiAlalakPart2 from './components/game/SungaiAlalakPart2';
 import SungaiAwang from './components/game/SungaiAwang';
+import SungaiMartapuraPart2 from './components/game/SungaiMartapuraPart2';
 import SungaiMartapuraPart4 from './components/game/SungaiMartapuraPart4';
 import SungaiMartapuraPart3 from './components/game/SungaiMartapuraPart3';
 import SungaiKuin from './components/game/SungaiKuin';
 import SungaiKuinPart2 from './components/game/SungaiKuinPart2';
 import SungaiKuinPart3 from './components/game/SungaiKuinPart3';
+import SungaiPelambuan from './components/game/SungaiPelambuan';
+
 
 
 
@@ -22,14 +25,16 @@ function App() {
         <Route path="/sungai" element={<DaftarSungai />} />
         <Route path="/game/barito" element={<SungaiBarito />} />
         <Route path="/game/alalak" element={<SungaiAlalak />} />
-        <Route path="/game/martapura" element={<SungaiMartapura />} />
         <Route path="/game/alalak2" element={<SungaiAlalakPart2 />} />
         <Route path="/game/awang" element={<SungaiAwang />} />
+        <Route path="/game/martapura" element={<SungaiMartapura />} />
+        <Route path="/game/martapura2" element={<SungaiMartapuraPart2 />} />
         <Route path="/game/martapura4" element={<SungaiMartapuraPart4 />} />
         <Route path="/game/martapura3" element={<SungaiMartapuraPart3 />} />
         <Route path="/game/kuin" element={<SungaiKuin/>} />
         <Route path="/game/kuin2" element={<SungaiKuinPart2/>} />
         <Route path="/game/kuin3" element={<SungaiKuinPart3/>} />
+        <Route path="/game/pelambuan" element={<SungaiPelambuan/>} />
 
       </Routes>
     </Router>
