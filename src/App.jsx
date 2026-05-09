@@ -9,6 +9,10 @@ import SungaiAwang from './components/game/SungaiAwang';
 import SungaiMartapuraPart4 from './components/game/SungaiMartapuraPart4';
 import SungaiMartapuraPart3 from './components/game/SungaiMartapuraPart3';
 import SungaiKuin from './components/game/SungaiKuin';
+import SungaiKuinPart2 from './components/game/SungaiKuinPart2';
+import SungaiKuinPart3 from './components/game/SungaiKuinPart3';
+
+
 
 function App() {
   return (
@@ -24,6 +28,8 @@ function App() {
         <Route path="/game/martapura4" element={<SungaiMartapuraPart4 />} />
         <Route path="/game/martapura3" element={<SungaiMartapuraPart3 />} />
         <Route path="/game/kuin" element={<SungaiKuin/>} />
+        <Route path="/game/kuin2" element={<SungaiKuinPart2/>} />
+        <Route path="/game/kuin3" element={<SungaiKuinPart3/>} />
 
       </Routes>
     </Router>
