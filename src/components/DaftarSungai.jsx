@@ -30,7 +30,7 @@ const levelSungai = [
   {
     id: 1,
     nama: "Sungai Barito",
-    lokasi: "Kuala Kapuas - Barito Selatan",
+    lokasi: "Perbatasan Kota Banjarmasin & Kab. Barito Kuala",
     deskripsi: "Sungai terpanjang di Kalimantan Selatan, menjadi jalur transportasi utama dan memiliki keanekaragaman hayati yang tinggi.",
     gambar: GambarSungaiBarito,
     status: "terbuka",
@@ -45,7 +45,7 @@ const levelSungai = [
   {
     id: 2,
     nama: "Sungai Alalak",
-    lokasi: "Barito Kuala",
+    lokasi: "Perbatasan Banjarmasin Utara & Barito Kuala",
     deskripsi: "Sungai yang membelah kota Marabahan, kaya akan ekosistem mangrove dan biota air.",
     gambar: GambarSungaiAlalak,
     status: "terbuka",
@@ -60,7 +60,7 @@ const levelSungai = [
   {
     id: 3,
     nama: "Sungai Alalak (Part 2)",
-    lokasi: "Barito Kuala",
+    lokasi: "Perbatasan Banjarmasin Utara & Barito Kuala",
     deskripsi: "Eksplorasi lebih dalam ekosistem mangrove Sungai Alalak.",
     gambar: GambarSungaiAlalak,
     status: "terbuka",
@@ -74,8 +74,8 @@ const levelSungai = [
   },
   {
     id: 4,
-    nama: "Sungai Awang",
-    lokasi: "Kandangan - Hulu Sungai Selatan",
+    nama: "Sungai Andai - Sungai Awang",
+    lokasi: "Banjarmasin Utara",
     deskripsi: "Sungai yang mengalir di pegunungan Meratus, memiliki air jernih dan pemandangan indah.",
     gambar: GambarSungaiAwang,
     status: "terbuka",
@@ -90,7 +90,7 @@ const levelSungai = [
   {
     id: 5,
     nama: "Sungai Martapura",
-    lokasi: "Martapura - Banjar",
+    lokasi: "Banjarmasin",
     deskripsi: "Sungai yang terkenal dengan industri batu permata dan budaya sungai yang masih lestari.",
     gambar: GambarSungaiMartapura,
     status: "terbuka",
@@ -105,7 +105,7 @@ const levelSungai = [
   {
     id: 6,
     nama: "Sungai Martapura (Part 2)",
-    lokasi: "Martapura - Banjar",
+    lokasi: "Banjarmasin",
     deskripsi: "Lanjutan petualangan menyusuri keindahan Sungai Martapura.",
     gambar: GambarSungaiMartapura,
     status: "terbuka",
@@ -120,7 +120,7 @@ const levelSungai = [
   {
     id: 7,
     nama: "Sungai Martapura (Part 3)",
-    lokasi: "Martapura - Banjar",
+    lokasi: "Banjarmasin",
     deskripsi: "Tantangan ekstrem di Sungai Martapura, hadapi arus deras.",
     gambar: GambarSungaiMartapura,
     status: "terbuka",
@@ -135,7 +135,7 @@ const levelSungai = [
   {
     id: 8,
     nama: "Sungai Martapura (Part 4)",
-    lokasi: "Martapura - Banjar",
+    lokasi: "Banjarmasin",
     deskripsi: "Puncak petualangan di Sungai Martapura, uji seluruh kemampuanmu.",
     gambar: GambarSungaiMartapura,
     status: "terbuka",
