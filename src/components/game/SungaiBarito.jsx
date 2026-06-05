@@ -810,7 +810,7 @@ const SungaiBarito = () => {
                   opacity: 0.6,
                   border: '2px solid #5D3A1A'
                 }}></div>
-                <span className="text-gray-700">Pulau Kembang (Obstacle)</span>
+                {/* <span className="text-gray-700">Pulau Kembang (Obstacle)</span> */}
                 </div>
             </div>
           </div>

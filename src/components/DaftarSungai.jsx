@@ -74,9 +74,9 @@ const levelSungai = [
   },
   {
     id: 4,
-    nama: "Sungai Andai - Sungai Awang",
+    nama: "Sungai Andai",
     lokasi: "Banjarmasin Utara",
-    deskripsi: "Sungai yang mengalir di pegunungan Meratus, memiliki air jernih dan pemandangan indah.",
+    deskripsi: "Sungai Andai yang namanya berasal dari sejarah sungai berarus landai (surut) yang kemudian digali dalam bergotong royong agar bisa dilalui perahu.",
     gambar: GambarSungaiAwang,
     status: "terbuka",
     waktuTerbaik: null,
