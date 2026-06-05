@@ -6,14 +6,15 @@ import {
   Pause, 
   RotateCcw, 
   Terminal,
-  MapPin,
-  Trophy,
   Clock,
   ArrowLeft,
   AlertCircle,
   Flag,
   Eraser,
-  Mountain
+  Grid3x3,
+  Eye,
+  EyeOff,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
@@ -22,8 +23,8 @@ import { LayersControl } from 'react-leaflet';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
-// Import file GeoJSON (hanya sungai)
-import sungaiBaritoGeoJSON from './geojson/sungaiawang.json';
+// Import file GeoJSON (sungai Martapura part 4)
+import sungaiMartapuraPart4GeoJSON from './geojson/sungaiawang.json';
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -112,6 +113,73 @@ const FollowTurtle = ({ position }) => {
   return null;
 };
 
+// Komponen grid kotak-kotak
+const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!enabled || !bounds || bounds.length === 0) return;
+    
+    // Konversi meter ke derajat (1° ≈ 111.32 km)
+    const stepDeg = stepMeters / 111320;
+    
+    const lats = bounds.map(coord => coord[0]);
+    const lngs = bounds.map(coord => coord[1]);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    
+    const gridLines = [];
+    
+    // Garis horizontal
+    for (let lat = minLat; lat <= maxLat; lat += stepDeg) {
+      gridLines.push(
+        L.polyline(
+          [
+            [lat, minLng],
+            [lat, maxLng]
+          ],
+          {
+            color: '#9ca3af',
+            weight: 1,
+            opacity: 0.4,
+            interactive: false,
+            className: 'map-grid-line'
+          }
+        )
+      );
+    }
+    
+    // Garis vertikal
+    for (let lng = minLng; lng <= maxLng; lng += stepDeg) {
+      gridLines.push(
+        L.polyline(
+          [
+            [minLat, lng],
+            [maxLat, lng]
+          ],
+          {
+            color: '#9ca3af',
+            weight: 1,
+            opacity: 0.4,
+            interactive: false,
+            className: 'map-grid-line'
+          }
+        )
+      );
+    }
+    
+    gridLines.forEach(line => line.addTo(map));
+    
+    return () => {
+      gridLines.forEach(line => map.removeLayer(line));
+    };
+  }, [map, bounds, stepMeters, enabled]);
+  
+  return null;
+};
+
 // Fungsi untuk mengekstrak koordinat dari GeoJSON
 const extractCoordinates = (geojson) => {
   if (geojson.features && geojson.features.length > 0) {
@@ -125,12 +193,12 @@ const extractCoordinates = (geojson) => {
   return [];
 };
 
-// Ekstrak koordinat dari GeoJSON sungai
-const batasSungai = extractCoordinates(sungaiBaritoGeoJSON);
+// Ekstrak koordinat sungai Martapura part 4
+const batasSungai = extractCoordinates(sungaiMartapuraPart4GeoJSON);
 
-// Fungsi untuk menghitung titik tengah dari array koordinat
+// Fungsi untuk menghitung titik tengah
 const calculateCenter = (coordinates) => {
-  if (coordinates.length === 0) return [-3.305, 114.555];
+  if (coordinates.length === 0) return [-3.3078, 114.6026];
   let latSum = 0, lngSum = 0;
   coordinates.forEach(coord => {
     latSum += coord[0];
@@ -141,7 +209,7 @@ const calculateCenter = (coordinates) => {
 
 const centerPoint = calculateCenter(batasSungai);
 
-// Fungsi untuk mencari titik terendah (paling selatan) dan tertinggi (paling utara)
+// Fungsi mencari titik ekstrim
 const findExtremePoints = (coordinates) => {
   let southPoint = coordinates[0];
   let northPoint = coordinates[0];
@@ -154,11 +222,11 @@ const findExtremePoints = (coordinates) => {
 
 const { southPoint, northPoint } = findExtremePoints(batasSungai);
 
-// Titik Start (bawah/selatan) dan Finish (atas/utara)
+// Titik Start dan Finish (sesuai data sungai Martapura part 4)
 const startPoint = [-3.3040, 114.6114];
 const finishPoint = [-3.3116, 114.5938];
 
-// Style untuk polygon sungai - Hanya garis
+// Style polygon sungai
 const polygonStyle = {
   color: '#0ea5e9',
   weight: 3,
@@ -167,7 +235,7 @@ const polygonStyle = {
   dashArray: '5, 10'
 };
 
-// Fungsi untuk mengecek titik di dalam polygon (batas sungai)
+// Fungsi pengecekan titik dalam polygon
 const isPointInPolygon = (point, polygon) => {
   const x = point[1], y = point[0];
   let inside = false;
@@ -181,17 +249,14 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
-// Fungsi untuk mengecek apakah titik valid (hanya di dalam sungai, tanpa obstacle)
 const isValidPosition = (point) => {
   return isPointInPolygon(point, batasSungai);
 };
 
-// Fungsi untuk mencari titik mentok di batas sungai
+// Fungsi mencari titik batas
 const findBoundaryPoint = (start, target) => {
-  const lat1 = start[0];
-  const lng1 = start[1];
-  const lat2 = target[0];
-  const lng2 = target[1];
+  const lat1 = start[0], lng1 = start[1];
+  const lat2 = target[0], lng2 = target[1];
   
   const R = 6371000;
   const φ1 = lat1 * Math.PI / 180;
@@ -248,6 +313,10 @@ const SungaiMartapuraPart4 = () => {
   const [trail, setTrail] = useState([startPoint]);
   const [showTrail, setShowTrail] = useState(true);
 
+  // State untuk grid
+  const [gridEnabled, setGridEnabled] = useState(true);
+  const [gridSizeMeters, setGridSizeMeters] = useState(275);
+
   // Timer
   useEffect(() => {
     let interval;
@@ -259,14 +328,14 @@ const SungaiMartapuraPart4 = () => {
     return () => clearInterval(interval);
   }, [startTime, isFinished]);
 
-  // Update marker icon when angle changes
+  // Update marker icon
   useEffect(() => {
     if (markerRef.current) {
       markerRef.current.setIcon(createTurtleIcon(turtleAngle));
     }
   }, [turtleAngle]);
 
-  // Zoom ke batas sungai saat pertama kali dimuat
+  // Zoom ke batas sungai
   useEffect(() => {
     if (mapRef.current && batasSungai.length > 0) {
       const bounds = L.latLngBounds(batasSungai);
@@ -274,14 +343,14 @@ const SungaiMartapuraPart4 = () => {
     }
   }, []);
 
-  // Fokus ke textarea setelah eksekusi selesai
+  // Fokus textarea
   useEffect(() => {
     if (!isExecuting && textareaRef.current && !isFinished) {
       textareaRef.current.focus();
     }
   }, [isExecuting, isFinished]);
 
-  // Calculate new position
+  // Hitung posisi baru
   const calculateNewPos = (lat, lng, angle, distance) => {
     const rad = (angle * Math.PI) / 180;
     const deltaLat = (distance * Math.cos(rad)) / 111000;
@@ -289,7 +358,7 @@ const SungaiMartapuraPart4 = () => {
     return [lat + deltaLat, lng + deltaLng];
   };
 
-  // Check if reached finish
+  // Cek finish
   const checkFinish = (pos) => {
     const distToFinish = Math.sqrt(
       Math.pow(pos[0] - finishPoint[0], 2) + 
@@ -298,7 +367,7 @@ const SungaiMartapuraPart4 = () => {
     return distToFinish < 0.001;
   };
 
-  // Animate movement
+  // Animasi gerak
   const animateMove = (targetPos) => {
     return new Promise((resolve) => {
       const startPos = [...turtlePos];
@@ -323,7 +392,7 @@ const SungaiMartapuraPart4 = () => {
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // Execute single command
+  // Eksekusi perintah
   const executeCommand = async (cmd) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
@@ -431,7 +500,7 @@ const SungaiMartapuraPart4 = () => {
     }
   };
 
-  // Run all commands
+  // Jalankan semua perintah
   const runCommands = async () => {
     if (!commands.trim() || isExecuting || isFinished) return;
     
@@ -514,7 +583,7 @@ const SungaiMartapuraPart4 = () => {
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <img src={turtleImage} alt="🐢" className="w-6 h-6" />
-              Sungai Martapura 4
+              Sungai Martapura - Part 4
             </h1>
           </div>
         </div>
@@ -560,14 +629,20 @@ const SungaiMartapuraPart4 = () => {
             
             <FollowTurtle position={turtlePos} />
             
-            {/* River Boundary dari GeoJSON */}
+            {/* Grid kotak-kotak */}
+            <MapGrid 
+              bounds={batasSungai} 
+              stepMeters={gridSizeMeters}
+              enabled={gridEnabled}
+            />
+            
+            {/* Batas sungai dari GeoJSON */}
             <GeoJSON 
-              data={sungaiBaritoGeoJSON}
+              data={sungaiMartapuraPart4GeoJSON}
               style={polygonStyle}
               ref={geojsonRef}
             />
             
-            {/* Polygon untuk kompatibilitas dengan fungsi isPointInPolygon */}
             <Polygon 
               positions={batasSungai}
               pathOptions={{ 
@@ -610,7 +685,7 @@ const SungaiMartapuraPart4 = () => {
               />
             )}
             
-            {/* Titik-titik jejak */}
+            {/* Titik jejak */}
             {showTrail && trail.map((point, index) => (
               index > 0 && index < trail.length - 1 && (
                 <Marker 
@@ -650,7 +725,7 @@ const SungaiMartapuraPart4 = () => {
               <Popup>
                 <div className="text-center">
                   <p className="font-bold text-red-600">FINISH</p>
-                  <p className="text-xs">Titik paling utara</p>
+                  <p className="text-xs">Titik tujuan</p>
                   <p className="text-xs">Lat: {finishPoint[0].toFixed(5)}</p>
                   <p className="text-xs">Lng: {finishPoint[1].toFixed(5)}</p>
                 </div>
@@ -707,7 +782,7 @@ const SungaiMartapuraPart4 = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs border-2 border-white shadow">🚩</div>
-                <span className="text-gray-700">Finish (Utara)</span>
+                <span className="text-gray-700">Finish</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-white shadow overflow-hidden bg-amber-100">
@@ -722,6 +797,11 @@ const SungaiMartapuraPart4 = () => {
               <div className="flex items-center gap-2">
                 <div className="w-6 h-1 bg-sky-500 rounded" style={{ background: 'transparent', borderTop: '3px dashed #0ea5e9', height: '3px', width: '24px' }}></div>
                 <span className="text-gray-700">Batas Sungai</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0 border-t border-gray-400 border-dashed" style={{ borderTop: `1px dashed ${gridEnabled ? '#9ca3af' : '#6b7280'}` }}></div>
+                <span className="text-gray-700">Grid Peta ({gridSizeMeters} m)</span>
+                {!gridEnabled && <span className="text-xs text-gray-400">(tersembunyi)</span>}
               </div>
             </div>
           </div>
@@ -805,13 +885,13 @@ const SungaiMartapuraPart4 = () => {
             )}
           </div>
 
-          {/* Info Jejak */}
-          <div className="p-3 bg-gray-900/50 border-t border-gray-700">
+          {/* Info Jejak & Kontrol Grid */}
+          <div className="p-3 bg-gray-900/50 border-t border-gray-700 space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Panjang Jejak:</span>
               <span className="text-amber-400 font-mono font-bold">{trail.length - 1} segmen</span>
             </div>
-            <div className="flex items-center justify-between text-xs mt-1">
+            <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Total Jarak:</span>
               <span className="text-teal-400 font-mono font-bold">
                 {(trail.length > 1 ? 
@@ -821,9 +901,48 @@ const SungaiMartapuraPart4 = () => {
                   ) * 111).toFixed(2) : 0)} km
               </span>
             </div>
-            <button onClick={clearTrail} className="mt-2 w-full py-1 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition flex items-center justify-center gap-1">
+            
+            <button onClick={clearTrail} className="w-full py-1 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition flex items-center justify-center gap-1">
               <Eraser size={12} /> Hapus Jejak
             </button>
+
+            {/* Kontrol Grid */}
+            <div className="pt-2 border-t border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-gray-300 text-xs font-bold">
+                  <Grid3x3 size={14} />
+                  <span>KOTAK GRID</span>
+                </div>
+                <button
+                  onClick={() => setGridEnabled(!gridEnabled)}
+                  className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  {gridEnabled ? <Eye size={14} className="text-teal-400" /> : <EyeOff size={14} className="text-gray-500" />}
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <SlidersHorizontal size={14} className="text-gray-400" />
+                <input
+                  type="range"
+                  min="200"
+                  max="1000"
+                  step="25"
+                  value={gridSizeMeters}
+                  onChange={(e) => setGridSizeMeters(parseInt(e.target.value))}
+                  disabled={!gridEnabled}
+                  className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                  style={{
+                    background: gridEnabled ? '#14b8a6' : '#4b5563'
+                  }}
+                />
+                <span className="text-xs text-gray-300 font-mono w-16 text-right">
+                  {gridSizeMeters} m
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1 text-center">
+                Jarak antar garis grid (200m - 1km)
+              </p>
+            </div>
           </div>
 
           {/* Help */}
