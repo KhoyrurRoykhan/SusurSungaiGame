@@ -13,7 +13,11 @@ import {
   AlertCircle,
   Flag,
   Eraser,
-  Mountain
+  Mountain,
+  Grid3x3,
+  Eye,
+  EyeOff,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
@@ -113,6 +117,77 @@ const FollowTurtle = ({ position }) => {
   return null;
 };
 
+// Komponen untuk menampilkan grid kotak-kotak pada peta dengan ukuran yang dapat disesuaikan
+const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!enabled || !bounds || bounds.length === 0) return;
+    
+    // Konversi jarak dalam meter ke step derajat (rata-rata 1° lintang ≈ 111.32 km)
+    const stepDeg = stepMeters / 111320;
+    
+    // Hitung batas minimum dan maksimum dari koordinat sungai
+    const lats = bounds.map(coord => coord[0]);
+    const lngs = bounds.map(coord => coord[1]);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    
+    // Kumpulkan garis-garis grid
+    const gridLines = [];
+    
+    // Garis horizontal (lintang tetap)
+    for (let lat = minLat; lat <= maxLat; lat += stepDeg) {
+      gridLines.push(
+        L.polyline(
+          [
+            [lat, minLng],
+            [lat, maxLng]
+          ],
+          {
+            color: '#9ca3af',
+            weight: 1,
+            opacity: 0.4,
+            interactive: false,
+            className: 'map-grid-line'
+          }
+        )
+      );
+    }
+    
+    // Garis vertikal (bujur tetap)
+    for (let lng = minLng; lng <= maxLng; lng += stepDeg) {
+      gridLines.push(
+        L.polyline(
+          [
+            [minLat, lng],
+            [maxLat, lng]
+          ],
+          {
+            color: '#9ca3af',
+            weight: 1,
+            opacity: 0.4,
+            interactive: false,
+            className: 'map-grid-line'
+          }
+        )
+      );
+    }
+    
+    // Tambahkan semua garis ke peta
+    gridLines.forEach(line => line.addTo(map));
+    
+    // Cleanup: hapus garis saat komponen unmount atau ketika enabled/step berubah
+    return () => {
+      gridLines.forEach(line => map.removeLayer(line));
+    };
+  }, [map, bounds, stepMeters, enabled]);
+  
+  return null;
+};
+
 // Fungsi untuk mengekstrak koordinat dari GeoJSON
 const extractCoordinates = (geojson) => {
   if (geojson.features && geojson.features.length > 0) {
@@ -179,10 +254,8 @@ const polygonStyle = {
 
 // Style untuk obstacle (Pulau Kembang)
 const obstacleStyle = {
-  // color: '#8B4513', // Warna coklat
   weight: 2,
   opacity: 0.9,
-  // fillColor: '#8B4513',
   fillOpacity: 0.6,
   dashArray: null // Garis lurus
 };
@@ -252,6 +325,10 @@ const SungaiBarito = () => {
   // State untuk jejak perjalanan
   const [trail, setTrail] = useState([startPoint]); // Mulai dengan titik start
   const [showTrail, setShowTrail] = useState(true);
+
+  // State untuk grid
+  const [gridEnabled, setGridEnabled] = useState(true);
+  const [gridSizeMeters, setGridSizeMeters] = useState(275); // default 275 meter
 
   const findBoundaryPoint = (start, target) => {
     // Hitung jarak antara start dan target (dalam meter)
@@ -624,9 +701,15 @@ const SungaiBarito = () => {
               </LayersControl.BaseLayer>
             </LayersControl>
             
-            
             {/* Komponen untuk mengikuti kura-kura */}
             <FollowTurtle position={turtlePos} />
+            
+            {/* Grid kotak-kotak pada peta - dengan ukuran yang dapat diatur */}
+            <MapGrid 
+              bounds={batasSungai} 
+              stepMeters={gridSizeMeters}
+              enabled={gridEnabled}
+            />
             
             {/* River Boundary dari GeoJSON - Hanya garis */}
             <GeoJSON 
@@ -812,6 +895,12 @@ const SungaiBarito = () => {
                 }}></div>
                 <span className="text-gray-700">Pulau Kembang (Obstacle)</span>
                 </div>
+                {/* Legend grid dengan status enabled */}
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-0 border-t border-gray-400 border-dashed" style={{ borderTop: `1px dashed ${gridEnabled ? '#9ca3af' : '#6b7280'}` }}></div>
+                  <span className="text-gray-700">Grid Peta ({gridSizeMeters} m)</span>
+                  {!gridEnabled && <span className="text-xs text-gray-400">(tersembunyi)</span>}
+                </div>
             </div>
           </div>
         </div>
@@ -895,13 +984,13 @@ const SungaiBarito = () => {
             )}
           </div>
 
-          {/* Info Jejak */}
-          <div className="p-3 bg-gray-900/50 border-t border-gray-700">
+          {/* Info Jejak & Kontrol Grid */}
+          <div className="p-3 bg-gray-900/50 border-t border-gray-700 space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Panjang Jejak:</span>
               <span className="text-amber-400 font-mono font-bold">{trail.length - 1} segmen</span>
             </div>
-            <div className="flex items-center justify-between text-xs mt-1">
+            <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Total Jarak:</span>
               <span className="text-teal-400 font-mono font-bold">
                 {(trail.length > 1 ? 
@@ -910,6 +999,44 @@ const SungaiBarito = () => {
                     Math.pow(trail[trail.length-1][1] - trail[0][1], 2)
                   ) * 111).toFixed(2) : 0)} km
               </span>
+            </div>
+            
+            {/* Kontrol Grid */}
+            <div className="pt-2 border-t border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-gray-300 text-xs font-bold">
+                  <Grid3x3 size={14} />
+                  <span>KOTAK GRID</span>
+                </div>
+                <button
+                  onClick={() => setGridEnabled(!gridEnabled)}
+                  className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  {gridEnabled ? <Eye size={14} className="text-teal-400" /> : <EyeOff size={14} className="text-gray-500" />}
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <SlidersHorizontal size={14} className="text-gray-400" />
+                <input
+                  type="range"
+                  min="200"
+                  max="1000"
+                  step="25"
+                  value={gridSizeMeters}
+                  onChange={(e) => setGridSizeMeters(parseInt(e.target.value))}
+                  disabled={!gridEnabled}
+                  className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                  style={{
+                    background: gridEnabled ? '#14b8a6' : '#4b5563'
+                  }}
+                />
+                <span className="text-xs text-gray-300 font-mono w-16 text-right">
+                  {gridSizeMeters} m
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1 text-center">
+                Jarak antar garis grid (200m - 1km)
+              </p>
             </div>
           </div>
 
