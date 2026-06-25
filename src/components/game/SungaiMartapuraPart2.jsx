@@ -113,27 +113,40 @@ const FollowTurtle = ({ position }) => {
   return null;
 };
 
-// Komponen grid kotak-kotak
-const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
+// Komponen grid kotak-kotak FULL (mencakup area lebih luas dari sungai)
+const MapGrid = ({ riverBounds, stepMeters = 275, enabled = true, marginDeg = 0.05 }) => {
   const map = useMap();
   
   useEffect(() => {
-    if (!enabled || !bounds || bounds.length === 0) return;
+    if (!enabled || !riverBounds || riverBounds.length === 0) return;
     
     // Konversi meter ke derajat (1° ≈ 111.32 km)
     const stepDeg = stepMeters / 111320;
     
-    const lats = bounds.map(coord => coord[0]);
-    const lngs = bounds.map(coord => coord[1]);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
+    // Hitung batas sungai
+    const lats = riverBounds.map(coord => coord[0]);
+    const lngs = riverBounds.map(coord => coord[1]);
+    let minLat = Math.min(...lats);
+    let maxLat = Math.max(...lats);
+    let minLng = Math.min(...lngs);
+    let maxLng = Math.max(...lngs);
+    
+    // Perluas dengan margin
+    minLat -= marginDeg;
+    maxLat += marginDeg;
+    minLng -= marginDeg;
+    maxLng += marginDeg;
+    
+    // Bulatkan ke kelipatan stepDeg agar grid rapi
+    minLat = Math.floor(minLat / stepDeg) * stepDeg;
+    maxLat = Math.ceil(maxLat / stepDeg) * stepDeg;
+    minLng = Math.floor(minLng / stepDeg) * stepDeg;
+    maxLng = Math.ceil(maxLng / stepDeg) * stepDeg;
     
     const gridLines = [];
     
     // Garis horizontal
-    for (let lat = minLat; lat <= maxLat; lat += stepDeg) {
+    for (let lat = minLat; lat <= maxLat + stepDeg/2; lat += stepDeg) {
       gridLines.push(
         L.polyline(
           [
@@ -152,7 +165,7 @@ const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
     }
     
     // Garis vertikal
-    for (let lng = minLng; lng <= maxLng; lng += stepDeg) {
+    for (let lng = minLng; lng <= maxLng + stepDeg/2; lng += stepDeg) {
       gridLines.push(
         L.polyline(
           [
@@ -175,7 +188,7 @@ const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
     return () => {
       gridLines.forEach(line => map.removeLayer(line));
     };
-  }, [map, bounds, stepMeters, enabled]);
+  }, [map, riverBounds, stepMeters, enabled, marginDeg]);
   
   return null;
 };
@@ -629,11 +642,12 @@ const SungaiMartapuraPart2 = () => {
             
             <FollowTurtle position={turtlePos} />
             
-            {/* Grid kotak-kotak */}
+            {/* Grid kotak-kotak FULL */}
             <MapGrid 
-              bounds={batasSungai} 
+              riverBounds={batasSungai}
               stepMeters={gridSizeMeters}
               enabled={gridEnabled}
+              marginDeg={0.05}
             />
             
             {/* Batas sungai dari GeoJSON */}
