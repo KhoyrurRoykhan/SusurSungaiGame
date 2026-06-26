@@ -6,6 +6,7 @@ import {
   Pause, 
   RotateCcw, 
   Terminal,
+  MapPin,                 // ditambahkan
   Clock,
   ArrowLeft,
   AlertCircle,
@@ -25,6 +26,8 @@ import { LayersControl } from 'react-leaflet';
 import turtleImage from './assets/kura-kura-obj.png';
 // Import file GeoJSON (sungai Kuin)
 import sungaiKuinGeoJSON from './geojson/sungaikuin.json';
+// Import data lokasi sungai
+import dataSungai from './geojson/Data_Sungai.json'; // sesuaikan path
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -291,6 +294,58 @@ const findBoundaryPoint = (start, target) => {
   return lastValid;
 };
 
+// ======== TAMBAHAN: FILTER LOKASI SUNGAI KUIN ========
+// Filter data dari Data_Sungai.json dengan Nama_Sungai === "Sungai Kuin"
+const lokasiSungaiKuin = dataSungai
+  .filter(item => item.Nama_Sungai === "Sungai Kuin")
+  .map(item => {
+    const lat = parseFloat(item.Latitude.replace(/,/g, '.'));
+    const lng = parseFloat(item.Longitude.replace(/,/g, '.'));
+    return {
+      ...item,
+      lat,
+      lng
+    };
+  })
+  .filter(item => !isNaN(item.lat) && !isNaN(item.lng));
+
+// Fungsi untuk membuat ikon marker berdasarkan kategori
+const getMarkerIcon = (kategori) => {
+  const colors = {
+    'Tempat Ibadah': '#3b82f6',
+    'Perdagangan': '#f59e0b',
+    'Pemerintahan dan Umum': '#8b5cf6',
+    'Infrastruktur Transportasi': '#10b981',
+    'Perusahaan dan Industri': '#ef4444',
+    'Pendidikan': '#ec4899',
+    'Kuliner': '#f97316',
+    'Tempat Wisata': '#06b6d4',
+    'Pemukiman': '#6b7280',
+    'Jembatan': '#f472b6',
+  };
+  const color = colors[kategori] || '#6b7280';
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      width: 24px; height: 24px;
+      background: ${color};
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: white;
+      font-weight: bold;
+    ">${kategori ? kategori.charAt(0) : '?'}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  });
+};
+
+// ======== KOMPONEN UTAMA ========
 const SungaiKuin = () => {
   const navigate = useNavigate();
   const mapRef = useRef(null);
@@ -755,6 +810,45 @@ const SungaiKuin = () => {
                 </div>
               </Popup>
             </Marker>
+
+            {/* ======== TAMBAHAN: MARKER LOKASI SUNGAI KUIN ======== */}
+            {lokasiSungaiKuin.map((lokasi, idx) => (
+              <Marker
+                key={idx}
+                position={[lokasi.lat, lokasi.lng]}
+                icon={getMarkerIcon(lokasi.Kategori_Lokasi)}
+              >
+                <Popup>
+                  <div className="min-w-[200px]">
+                    <h3 className="font-bold text-gray-800">{lokasi.Nama_Lokasi}</h3>
+                    <p className="text-sm text-gray-600">{lokasi.Alamat_Wilayah}</p>
+                    <p className="text-xs text-gray-500">Kategori: {lokasi.Kategori_Lokasi}</p>
+                    <p className="text-xs text-gray-500">Tahun: {lokasi.Tahun_Berdiri}</p>
+                    {lokasi.Deskripsi_Lokasi && (
+                      <p className="text-xs text-gray-500 mt-1">{lokasi.Deskripsi_Lokasi}</p>
+                    )}
+                    <div className="mt-2 text-xs">
+                      <span className={`px-2 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-100 text-green-800' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                        {lokasi.Akses_Lokasi}
+                      </span>
+                      <span className={`ml-1 px-2 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? '🚤 Bisa perahu' : '🚫 Tidak'}
+                      </span>
+                    </div>
+                    {lokasi.Foto_Lokasi && (
+                      <a
+                        href={lokasi.Foto_Lokasi}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-teal-600 underline block mt-1"
+                      >
+                        Lihat Foto
+                      </a>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
           </MapContainer>
 
           {/* Direction Indicator */}
@@ -802,6 +896,11 @@ const SungaiKuin = () => {
                 <div className="w-6 h-0 border-t border-gray-400 border-dashed" style={{ borderTop: `1px dashed ${gridEnabled ? '#9ca3af' : '#6b7280'}` }}></div>
                 <span className="text-gray-700">Grid Peta ({gridSizeMeters} m)</span>
                 {!gridEnabled && <span className="text-xs text-gray-400">(tersembunyi)</span>}
+              </div>
+              {/* Tambahan legenda untuk marker lokasi */}
+              <div className="flex items-center gap-2 border-t border-gray-200 pt-2 mt-2">
+                <div className="w-6 h-6 rounded-full bg-gray-500 border-2 border-white shadow flex items-center justify-center text-xs text-white font-bold">?</div>
+                <span className="text-gray-700">Lokasi (berwarna berdasarkan kategori)</span>
               </div>
             </div>
           </div>
@@ -883,6 +982,35 @@ const SungaiKuin = () => {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ======== TAMBAHAN: DAFTAR LOKASI SUNGAI KUIN ======== */}
+          <div className="p-4 border-t border-gray-700 max-h-60 overflow-y-auto">
+            <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
+              <MapPin size={16} />
+              Lokasi di Sungai Kuin ({lokasiSungaiKuin.length})
+            </h3>
+            <div className="space-y-2 text-xs">
+              {lokasiSungaiKuin.length === 0 ? (
+                <div className="text-gray-500 italic">Tidak ada lokasi ditemukan</div>
+              ) : (
+                lokasiSungaiKuin.map((lokasi, idx) => (
+                  <div key={idx} className="p-2 bg-gray-800 rounded-lg border border-gray-700">
+                    <div className="font-bold text-gray-200">{lokasi.Nama_Lokasi}</div>
+                    <div className="text-gray-400">{lokasi.Kategori_Lokasi}</div>
+                    <div className="text-gray-500 truncate">{lokasi.Alamat_Wilayah}</div>
+                    <div className="flex gap-2 mt-1">
+                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-900/50 text-green-300' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-red-900/50 text-red-300'}`}>
+                        {lokasi.Akses_Lokasi}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-700 text-gray-400'}`}>
+                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'Perahu' : 'Darat'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           {/* Info Jejak & Kontrol Grid */}

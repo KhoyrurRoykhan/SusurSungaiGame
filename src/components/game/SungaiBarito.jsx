@@ -29,6 +29,8 @@ import turtleImage from './assets/kura-kura-obj.png';
 // Import file GeoJSON
 import sungaiBaritoGeoJSON from './geojson/sungabarito.json';
 import pulauKembangGeoJSON from './geojson/Pulau_Kembang.json';
+// Import data lokasi sungai
+import dataSungai from './geojson/Data_Sungai.json'; // Sesuaikan path
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -124,10 +126,7 @@ const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
   useEffect(() => {
     if (!enabled || !bounds || bounds.length === 0) return;
     
-    // Konversi jarak dalam meter ke step derajat (rata-rata 1° lintang ≈ 111.32 km)
     const stepDeg = stepMeters / 111320;
-    
-    // Hitung batas minimum dan maksimum dari koordinat sungai
     const lats = bounds.map(coord => coord[0]);
     const lngs = bounds.map(coord => coord[1]);
     const minLat = Math.min(...lats);
@@ -135,10 +134,7 @@ const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
     const minLng = Math.min(...lngs);
     const maxLng = Math.max(...lngs);
     
-    // Kumpulkan garis-garis grid
     const gridLines = [];
-    
-    // Garis horizontal (lintang tetap)
     for (let lat = minLat; lat <= maxLat; lat += stepDeg) {
       gridLines.push(
         L.polyline(
@@ -156,8 +152,6 @@ const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
         )
       );
     }
-    
-    // Garis vertikal (bujur tetap)
     for (let lng = minLng; lng <= maxLng; lng += stepDeg) {
       gridLines.push(
         L.polyline(
@@ -175,11 +169,7 @@ const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
         )
       );
     }
-    
-    // Tambahkan semua garis ke peta
     gridLines.forEach(line => line.addTo(map));
-    
-    // Cleanup: hapus garis saat komponen unmount atau ketika enabled/step berubah
     return () => {
       gridLines.forEach(line => map.removeLayer(line));
     };
@@ -193,10 +183,8 @@ const extractCoordinates = (geojson) => {
   if (geojson.features && geojson.features.length > 0) {
     const feature = geojson.features[0];
     if (feature.geometry.type === 'Polygon') {
-      // Untuk Polygon, ambil ring pertama (biasanya yang terluar)
       return feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
     } else if (feature.geometry.type === 'MultiPolygon') {
-      // Untuk MultiPolygon, ambil ring pertama dari polygon pertama
       return feature.geometry.coordinates[0][0].map(coord => [coord[1], coord[0]]);
     }
   }
@@ -210,45 +198,39 @@ const pulauKembang = extractCoordinates(pulauKembangGeoJSON);
 // Fungsi untuk menghitung titik tengah dari array koordinat
 const calculateCenter = (coordinates) => {
   if (coordinates.length === 0) return [-3.305, 114.555];
-  
   let latSum = 0, lngSum = 0;
   coordinates.forEach(coord => {
     latSum += coord[0];
     lngSum += coord[1];
   });
-  
   return [latSum / coordinates.length, lngSum / coordinates.length];
 };
 
-// Hitung titik tengah untuk center map
 const centerPoint = calculateCenter(batasSungai);
 
 // Fungsi untuk mencari titik terendah (paling selatan) dan tertinggi (paling utara)
 const findExtremePoints = (coordinates) => {
-  let southPoint = coordinates[0]; // Lowest latitude (paling selatan)
-  let northPoint = coordinates[0]; // Highest latitude (paling utara)
-  
+  let southPoint = coordinates[0];
+  let northPoint = coordinates[0];
   coordinates.forEach(coord => {
-    if (coord[0] < southPoint[0]) southPoint = coord; // Lebih kecil = lebih selatan
-    if (coord[0] > northPoint[0]) northPoint = coord; // Lebih besar = lebih utara
+    if (coord[0] < southPoint[0]) southPoint = coord;
+    if (coord[0] > northPoint[0]) northPoint = coord;
   });
-  
   return { southPoint, northPoint };
 };
 
 const { southPoint, northPoint } = findExtremePoints(batasSungai);
 
 // Titik Start (bawah/selatan) dan Finish (atas/utara)
-const startPoint = [-3.3606, 114.5229]; // Titik paling selatan sebagai START
-const finishPoint = [-3.2819, 114.5665]; // Titik paling utara sebagai FINISH
-
+const startPoint = [-3.3606, 114.5229];
+const finishPoint = [-3.2819, 114.5665];
 
 // Style untuk polygon GeoJSON - Hanya garis
 const polygonStyle = {
   color: '#0ea5e9',
   weight: 3,
   opacity: 0.8,
-  fillOpacity: 0, // Tidak ada fill
+  fillOpacity: 0,
   dashArray: '5, 10'
 };
 
@@ -257,7 +239,7 @@ const obstacleStyle = {
   weight: 2,
   opacity: 0.9,
   fillOpacity: 0.6,
-  dashArray: null // Garis lurus
+  dashArray: null
 };
 
 // Fungsi untuk mengecek apakah titik berada di dalam obstacle
@@ -276,14 +258,10 @@ const isPointInObstacle = (point, obstacle) => {
 
 // Fungsi untuk mengecek apakah titik valid (di dalam sungai dan tidak di obstacle)
 const isValidPosition = (point) => {
-  // Cek apakah di dalam batas sungai
   const inRiver = isPointInPolygon(point, batasSungai);
   if (!inRiver) return false;
-  
-  // Cek apakah di obstacle (Pulau Kembang)
   const inObstacle = isPointInObstacle(point, pulauKembang);
   if (inObstacle) return false;
-  
   return true;
 };
 
@@ -301,17 +279,69 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
-const SungaiBarito = () => {
-  const [alertMsg, setAlertMsg] = useState(null); // State untuk popup alert
+// ======== TAMBAHAN: FILTER LOKASI SUNGAI BARITO ========
+// Filter lokasi dengan Nama_Sungai === "Sungai Barito" dan parsing koordinat
+const lokasiSungaiBarito = dataSungai
+  .filter(item => item.Nama_Sungai === "Sungai Barito")
+  .map(item => {
+    // Ganti koma dengan titik untuk parsing float
+    const lat = parseFloat(item.Latitude.replace(/,/g, '.'));
+    const lng = parseFloat(item.Longitude.replace(/,/g, '.'));
+    return {
+      ...item,
+      lat,
+      lng
+    };
+  })
+  .filter(item => !isNaN(item.lat) && !isNaN(item.lng)); // filter yang valid
 
+// Fungsi untuk membuat ikon marker berdasarkan kategori
+const getMarkerIcon = (kategori) => {
+  const colors = {
+    'Tempat Ibadah': '#3b82f6',
+    'Perdagangan': '#f59e0b',
+    'Pemerintahan dan Umum': '#8b5cf6',
+    'Infrastruktur Transportasi': '#10b981',
+    'Perusahaan dan Industri': '#ef4444',
+    'Pendidikan': '#ec4899',
+    'Kuliner': '#f97316',
+    'Tempat Wisata': '#06b6d4',
+    'Pemukiman': '#6b7280',
+    'Jembatan': '#f472b6',
+  };
+  const color = colors[kategori] || '#6b7280';
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      width: 24px; height: 24px;
+      background: ${color};
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: white;
+      font-weight: bold;
+    ">${kategori ? kategori.charAt(0) : '?'}</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  });
+};
+
+// ======== KOMPONEN UTAMA ========
+const SungaiBarito = () => {
+  const [alertMsg, setAlertMsg] = useState(null);
   const navigate = useNavigate();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
   const obstacleRef = useRef(null);
-  const textareaRef = useRef(null); // Ref untuk textarea
+  const textareaRef = useRef(null);
   
-  // Turtle State - mulai dari startPoint
+  // Turtle State
   const [turtlePos, setTurtlePos] = useState(startPoint);
   const [turtleAngle, setTurtleAngle] = useState(0);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -323,55 +353,12 @@ const SungaiBarito = () => {
   const [isFinished, setIsFinished] = useState(false);
   
   // State untuk jejak perjalanan
-  const [trail, setTrail] = useState([startPoint]); // Mulai dengan titik start
+  const [trail, setTrail] = useState([startPoint]);
   const [showTrail, setShowTrail] = useState(true);
 
   // State untuk grid
   const [gridEnabled, setGridEnabled] = useState(true);
-  const [gridSizeMeters, setGridSizeMeters] = useState(275); // default 275 meter
-
-  const findBoundaryPoint = (start, target) => {
-    // Hitung jarak antara start dan target (dalam meter)
-    const lat1 = start[0];
-    const lng1 = start[1];
-    const lat2 = target[0];
-    const lng2 = target[1];
-    
-    // Konversi ke radian untuk perhitungan jarak
-    const R = 6371000; // Radius bumi dalam meter
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lng2 - lng1) * Math.PI / 180;
-    
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const totalDistance = R * c; // dalam meter
-    
-    if (totalDistance === 0) return start;
-    
-    // Iterasi dengan step 1 meter
-    const step = 1; // meter
-    const steps = Math.ceil(totalDistance / step);
-    let lastValid = start;
-    
-    for (let i = 1; i <= steps; i++) {
-      const fraction = i / steps;
-      const currentLat = lat1 + (lat2 - lat1) * fraction;
-      const currentLng = lng1 + (lng2 - lng1) * fraction;
-      const currentPoint = [currentLat, currentLng];
-      
-      if (isValidPosition(currentPoint)) {
-        lastValid = currentPoint;
-      } else {
-        // Titik ini tidak valid, berhenti
-        break;
-      }
-    }
-    return lastValid;
-  };
+  const [gridSizeMeters, setGridSizeMeters] = useState(275);
 
   // Timer
   useEffect(() => {
@@ -401,7 +388,6 @@ const SungaiBarito = () => {
 
   // Effect untuk memfokuskan textarea setelah eksekusi selesai
   useEffect(() => {
-    // Jika tidak sedang executing dan textarea ada, fokuskan
     if (!isExecuting && textareaRef.current && !isFinished) {
       textareaRef.current.focus();
     }
@@ -421,8 +407,46 @@ const SungaiBarito = () => {
       Math.pow(pos[0] - finishPoint[0], 2) + 
       Math.pow(pos[1] - finishPoint[1], 2)
     );
-    // Threshold ~100m
     return distToFinish < 0.001;
+  };
+
+  // Fungsi untuk mencari titik batas terdekat
+  const findBoundaryPoint = (start, target) => {
+    const lat1 = start[0];
+    const lng1 = start[1];
+    const lat2 = target[0];
+    const lng2 = target[1];
+    
+    const R = 6371000;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+    
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const totalDistance = R * c;
+    
+    if (totalDistance === 0) return start;
+    
+    const step = 1;
+    const steps = Math.ceil(totalDistance / step);
+    let lastValid = start;
+    
+    for (let i = 1; i <= steps; i++) {
+      const fraction = i / steps;
+      const currentLat = lat1 + (lat2 - lat1) * fraction;
+      const currentLng = lng1 + (lng2 - lng1) * fraction;
+      const currentPoint = [currentLat, currentLng];
+      if (isValidPosition(currentPoint)) {
+        lastValid = currentPoint;
+      } else {
+        break;
+      }
+    }
+    return lastValid;
   };
 
   // Modifikasi executeCommand untuk forward, backward, goto
@@ -436,24 +460,19 @@ const SungaiBarito = () => {
       case 'fd':
         if (isNaN(value)) throw new Error('forward membutuhkan angka (meter)');
         const targetPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle, value);
-        
         if (!isValidPosition(targetPos)) {
-          // Cari titik mentok
           const boundaryPos = findBoundaryPoint(turtlePos, targetPos);
           if (boundaryPos[0] !== turtlePos[0] || boundaryPos[1] !== turtlePos[1]) {
             await animateMove(boundaryPos);
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
-            // Tampilkan alert popup
             setAlertMsg("⚠️ Kura-kura mentok di batas sungai atau pulau! Perintah tidak dapat dilanjutkan.");
-            // Hapus alert setelah 3 detik
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Perintah melebihi batas wilayah');
           } else {
             throw new Error('Tidak bisa bergerak, sudah di batas');
           }
         }
-        
         await animateMove(targetPos);
         setTurtlePos(targetPos);
         setTrail(prev => [...prev, targetPos]);
@@ -464,7 +483,6 @@ const SungaiBarito = () => {
       case 'bk':
         if (isNaN(value)) throw new Error('backward membutuhkan angka (meter)');
         const backTarget = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle + 180, value);
-        
         if (!isValidPosition(backTarget)) {
           const boundaryPos = findBoundaryPoint(turtlePos, backTarget);
           if (boundaryPos[0] !== turtlePos[0] || boundaryPos[1] !== turtlePos[1]) {
@@ -478,7 +496,6 @@ const SungaiBarito = () => {
             throw new Error('Tidak bisa bergerak, sudah di batas');
           }
         }
-        
         await animateMove(backTarget);
         setTurtlePos(backTarget);
         setTrail(prev => [...prev, backTarget]);
@@ -510,7 +527,6 @@ const SungaiBarito = () => {
         const gotoLat = parseFloat(parts[1]);
         const gotoLng = parseFloat(parts[2]);
         const gotoPos = [gotoLat, gotoLng];
-        
         if (!isValidPosition(gotoPos)) {
           const boundaryPos = findBoundaryPoint(turtlePos, gotoPos);
           if (boundaryPos[0] !== turtlePos[0] || boundaryPos[1] !== turtlePos[1]) {
@@ -524,7 +540,6 @@ const SungaiBarito = () => {
             throw new Error('Tidak bisa bergerak ke tujuan');
           }
         }
-        
         await animateMove(gotoPos);
         setTurtlePos(gotoPos);
         setTrail(prev => [...prev, gotoPos]);
@@ -542,15 +557,12 @@ const SungaiBarito = () => {
       const startPos = [...turtlePos];
       const steps = 20;
       let currentStep = 0;
-      
       const interval = setInterval(() => {
         currentStep++;
         const progress = currentStep / steps;
         const currentLat = startPos[0] + (targetPos[0] - startPos[0]) * progress;
         const currentLng = startPos[1] + (targetPos[1] - startPos[1]) * progress;
-        
         setTurtlePos([currentLat, currentLng]);
-        
         if (currentStep >= steps) {
           clearInterval(interval);
           resolve();
@@ -564,48 +576,34 @@ const SungaiBarito = () => {
   // Run all commands
   const runCommands = async () => {
     if (!commands.trim() || isExecuting || isFinished) return;
-    
     setIsExecuting(true);
     setError('');
     if (!startTime) setStartTime(Date.now());
-    
     const lines = commands.split('\n').filter(line => line.trim());
     const history = [];
-    
     try {
       for (const line of lines) {
         if (isFinished) break;
-        
         history.push({ cmd: line, status: 'running' });
         setCommandHistory([...history]);
-        
         await executeCommand(line);
-        
         history[history.length - 1].status = 'done';
         setCommandHistory([...history]);
       }
-      
     } catch (err) {
       setError(err.message);
       history[history.length - 1].status = 'error';
       setCommandHistory([...history]);
     }
-    
     setIsExecuting(false);
-    
-    // Hapus semua kode di terminal setelah selesai dieksekusi
     setCommands('');
-    
-    // Fokus kembali ke textarea setelah state diupdate
-    // useEffect akan menangani fokus karena isExecuting berubah
   };
 
   // Handler untuk key down di textarea
   const handleKeyDown = (e) => {
-    // Cek jika tombol Enter ditekan tanpa Shift
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // Mencegah new line
-      runCommands(); // Jalankan perintah
+      e.preventDefault();
+      runCommands();
     }
   };
 
@@ -619,9 +617,7 @@ const SungaiBarito = () => {
     setStartTime(null);
     setElapsedTime(0);
     setIsFinished(false);
-    setTrail([startPoint]); // Reset jejak ke titik start saja
-    
-    // Fokus ke textarea setelah reset
+    setTrail([startPoint]);
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -631,7 +627,7 @@ const SungaiBarito = () => {
 
   // Hapus jejak
   const clearTrail = () => {
-    setTrail([turtlePos]); // Set jejak hanya dengan posisi saat ini
+    setTrail([turtlePos]);
   };
 
   const formatTime = (seconds) => {
@@ -653,7 +649,6 @@ const SungaiBarito = () => {
           >
             <ArrowLeft size={20} className="text-gray-300" />
           </motion.button>
-          
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <img src={turtleImage} alt="🐢" className="w-6 h-6" />
@@ -661,13 +656,11 @@ const SungaiBarito = () => {
             </h1>
           </div>
         </div>
-
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-lg">
             <Clock size={16} className="text-amber-400" />
             <span className="text-white font-mono">{formatTime(elapsedTime)}</span>
           </div>
-          
           <div className="flex items-center gap-2 bg-green-900/50 px-3 py-1 rounded-lg border border-green-600">
             <Flag size={16} className="text-green-400" />
             <span className="text-green-300 text-sm">Start → Finish</span>
@@ -680,8 +673,8 @@ const SungaiBarito = () => {
         {/* Map */}
         <div className="flex-1 relative">
           <MapContainer
-            center={turtlePos} // Center mengikuti posisi kura-kura
-            zoom={15} // Zoom lebih dekat
+            center={turtlePos}
+            zoom={15}
             style={{ height: '100%', width: '100%' }}
             ref={mapRef}
           >
@@ -692,7 +685,6 @@ const SungaiBarito = () => {
                   attribution="&copy; OpenStreetMap contributors"
                 />
               </LayersControl.BaseLayer>
-              
               <LayersControl.BaseLayer name="Satelit ESRI">
                 <TileLayer
                   url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -701,38 +693,30 @@ const SungaiBarito = () => {
               </LayersControl.BaseLayer>
             </LayersControl>
             
-            {/* Komponen untuk mengikuti kura-kura */}
             <FollowTurtle position={turtlePos} />
-            
-            {/* Grid kotak-kotak pada peta - dengan ukuran yang dapat diatur */}
             <MapGrid 
               bounds={batasSungai} 
               stepMeters={gridSizeMeters}
               enabled={gridEnabled}
             />
             
-            {/* River Boundary dari GeoJSON - Hanya garis */}
             <GeoJSON 
               data={sungaiBaritoGeoJSON}
               style={polygonStyle}
               ref={geojsonRef}
             />
-            
-            {/* Pulau Kembang sebagai obstacle */}
             <GeoJSON 
               data={pulauKembangGeoJSON}
               style={obstacleStyle}
               ref={obstacleRef}
             />
-            
-            {/* Polygon untuk kompatibilitas dengan fungsi isPointInPolygon - juga hanya garis */}
             <Polygon 
               positions={batasSungai}
               pathOptions={{ 
                 color: '#0ea5e9', 
                 weight: 3,
                 opacity: 0.8,
-                fillOpacity: 0, // Transparan penuh, hanya garis
+                fillOpacity: 0,
                 dashArray: '5, 10'
               }}
             />
@@ -764,12 +748,9 @@ const SungaiBarito = () => {
                   opacity: 0.8,
                   lineCap: 'round',
                   lineJoin: 'round',
-                  dashArray: null
                 }}
               />
             )}
-            
-            {/* Titik-titik jejak (opsional) */}
             {showTrail && trail.map((point, index) => (
               index > 0 && index < trail.length - 1 && (
                 <Marker 
@@ -816,7 +797,7 @@ const SungaiBarito = () => {
               </Popup>
             </Marker>
             
-            {/* Kura-kura dengan gambar dan arah yang bisa berputar */}
+            {/* Kura-kura */}
             <Marker 
               position={turtlePos}
               icon={createTurtleIcon(turtleAngle)}
@@ -839,6 +820,45 @@ const SungaiBarito = () => {
                 </div>
               </Popup>
             </Marker>
+
+            {/* ======== TAMBAHAN: MARKER LOKASI SUNGAI BARITO ======== */}
+            {lokasiSungaiBarito.map((lokasi, idx) => (
+              <Marker
+                key={idx}
+                position={[lokasi.lat, lokasi.lng]}
+                icon={getMarkerIcon(lokasi.Kategori_Lokasi)}
+              >
+                <Popup>
+                  <div className="min-w-[200px]">
+                    <h3 className="font-bold text-gray-800">{lokasi.Nama_Lokasi}</h3>
+                    <p className="text-sm text-gray-600">{lokasi.Alamat_Wilayah}</p>
+                    <p className="text-xs text-gray-500">Kategori: {lokasi.Kategori_Lokasi}</p>
+                    <p className="text-xs text-gray-500">Tahun: {lokasi.Tahun_Berdiri}</p>
+                    {lokasi.Deskripsi_Lokasi && (
+                      <p className="text-xs text-gray-500 mt-1">{lokasi.Deskripsi_Lokasi}</p>
+                    )}
+                    <div className="mt-2 text-xs">
+                      <span className={`px-2 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-100 text-green-800' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                        {lokasi.Akses_Lokasi}
+                      </span>
+                      <span className={`ml-1 px-2 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? '🚤 Bisa perahu' : '🚫 Tidak'}
+                      </span>
+                    </div>
+                    {lokasi.Foto_Lokasi && (
+                      <a
+                        href={lokasi.Foto_Lokasi}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-teal-600 underline block mt-1"
+                      >
+                        Lihat Foto
+                      </a>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
           </MapContainer>
 
           {/* Direction Indicator */}
@@ -895,11 +915,15 @@ const SungaiBarito = () => {
                 }}></div>
                 {/* <span className="text-gray-700">Pulau Kembang (Obstacle)</span> */}
                 </div>
-                {/* Legend grid dengan status enabled */}
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-0 border-t border-gray-400 border-dashed" style={{ borderTop: `1px dashed ${gridEnabled ? '#9ca3af' : '#6b7280'}` }}></div>
                   <span className="text-gray-700">Grid Peta ({gridSizeMeters} m)</span>
                   {!gridEnabled && <span className="text-xs text-gray-400">(tersembunyi)</span>}
+                </div>
+                {/* Tambahan legenda untuk marker lokasi */}
+                <div className="flex items-center gap-2 border-t border-gray-200 pt-2 mt-2">
+                  <div className="w-6 h-6 rounded-full bg-gray-500 border-2 border-white shadow flex items-center justify-center text-xs text-white font-bold">?</div>
+                  <span className="text-gray-700">Lokasi (berwarna berdasarkan kategori)</span>
                 </div>
             </div>
           </div>
@@ -922,7 +946,7 @@ const SungaiBarito = () => {
               placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\nright 45\nbackward 30\n\nTekan Enter untuk menjalankan`}
               className="w-full h-36 bg-gray-900 text-green-400 font-mono text-sm p-3 rounded-lg border border-gray-600 focus:border-teal-500 focus:outline-none resize-none"
               disabled={isExecuting}
-              autoFocus // Auto focus saat komponen dimuat
+              autoFocus
             />
             
             {error && (
@@ -953,7 +977,6 @@ const SungaiBarito = () => {
                 <RotateCcw size={18} />
               </motion.button>
             </div>
-            
           </div>
 
           {/* Command History */}
@@ -982,6 +1005,35 @@ const SungaiBarito = () => {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ======== TAMBAHAN: DAFTAR LOKASI SUNGAI BARITO ======== */}
+          <div className="p-4 border-t border-gray-700 max-h-60 overflow-y-auto">
+            <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
+              <MapPin size={16} />
+              Lokasi di Sungai Barito ({lokasiSungaiBarito.length})
+            </h3>
+            <div className="space-y-2 text-xs">
+              {lokasiSungaiBarito.length === 0 ? (
+                <div className="text-gray-500 italic">Tidak ada lokasi ditemukan</div>
+              ) : (
+                lokasiSungaiBarito.map((lokasi, idx) => (
+                  <div key={idx} className="p-2 bg-gray-800 rounded-lg border border-gray-700">
+                    <div className="font-bold text-gray-200">{lokasi.Nama_Lokasi}</div>
+                    <div className="text-gray-400">{lokasi.Kategori_Lokasi}</div>
+                    <div className="text-gray-500 truncate">{lokasi.Alamat_Wilayah}</div>
+                    <div className="flex gap-2 mt-1">
+                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-900/50 text-green-300' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-red-900/50 text-red-300'}`}>
+                        {lokasi.Akses_Lokasi}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-700 text-gray-400'}`}>
+                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'Perahu' : 'Darat'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           {/* Info Jejak & Kontrol Grid */}
