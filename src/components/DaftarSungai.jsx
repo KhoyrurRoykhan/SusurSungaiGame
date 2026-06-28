@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   MapPin, 
@@ -10,12 +10,19 @@ import {
   Waves,
   Turtle,
   Play,
-  Star,
   Timer,
   Target,
-  Award
+  User,
+  LogOut,
+  Hash,
+  DoorOpen,
+  X,
+  Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 
 // sungai
 import GambarSungaiBarito from "./assets/sungaibarito.jpeg";
@@ -37,9 +44,7 @@ const levelSungai = [
     waktuTerbaik: "05:32",
     pernahDimainkan: true,
     skorTertinggi: 850,
-    bintang: 3,
     tingkatKesulitan: "Mudah",
-    reward: "Badge Pemula",
     path: "/game/barito"
   },
   {
@@ -52,9 +57,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sedang",
-    reward: "Badge Penjelajah",
     path: "/game/alalak"
   },
   {
@@ -67,9 +70,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sedang",
-    reward: "Badge Mangrove",
     path: "/game/alalak2"
   },
   {
@@ -82,9 +83,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sulit",
-    reward: "Badge Pendaki",
     path: "/game/awang"
   },
   {
@@ -97,9 +96,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sulit",
-    reward: "Badge Budayawan",
     path: "/game/martapura4"
   },
   {
@@ -112,9 +109,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sulit",
-    reward: "Badge Sejarah",
     path: "/game/martapura3"
   },
   {
@@ -127,9 +122,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sulit",
-    reward: "Badge Arus Deras",
     path: "/game/martapura2"
   },
   {
@@ -142,9 +135,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Legenda",
-    reward: "Badge Legenda Martapura",
     path: "/game/martapura"
   },
   {
@@ -157,9 +148,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Legenda",
-    reward: "Badge Legenda Sungai",
     path: "/game/pelambuan"
   },
   {
@@ -172,9 +161,7 @@ const levelSungai = [
     waktuTerbaik: "08:15",
     pernahDimainkan: true,
     skorTertinggi: 720,
-    bintang: 2,
     tingkatKesulitan: "Mudah",
-    reward: "Badge Petualang",
     path: "/game/kuin"
   },
   {
@@ -187,9 +174,7 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sedang",
-    reward: "Badge Explorer",
     path: "/game/kuin2"
   },
   {
@@ -202,27 +187,10 @@ const levelSungai = [
     waktuTerbaik: null,
     pernahDimainkan: false,
     skorTertinggi: 0,
-    bintang: 0,
     tingkatKesulitan: "Sulit",
-    reward: "Badge Master Sungai",
     path: "/game/kuin3"
   },
 ];
-
-// Star Rating Component
-const StarRating = ({ count }) => {
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3].map((star) => (
-        <Star
-          key={star}
-          size={16}
-          className={star <= count ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
-        />
-      ))}
-    </div>
-  );
-};
 
 // Difficulty Badge
 const DifficultyBadge = ({ level }) => {
@@ -256,7 +224,6 @@ const LevelCard = ({ level, index, onPlay }) => {
           levelId: level.id,
           levelName: level.nama,
           waktuTerbaik: level.waktuTerbaik,
-          bintang: level.bintang,
           pernahDimainkan: level.pernahDimainkan
         } 
       });
@@ -282,16 +249,11 @@ const LevelCard = ({ level, index, onPlay }) => {
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         
-        {/* Level Number & Badge */}
+        {/* Level Number */}
         <div className="absolute top-3 left-3 flex gap-2">
           <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white font-bold border border-white/30">
             {level.id}
           </div>
-          {level.pernahDimainkan && (
-            <div className="bg-amber-500/90 backdrop-blur-md rounded-xl px-2 flex items-center">
-              <Award size={16} className="text-white" />
-            </div>
-          )}
         </div>
         
         {/* Status Badge */}
@@ -359,15 +321,8 @@ const LevelCard = ({ level, index, onPlay }) => {
           </div>
         </div>
 
-        {/* Reward & Action */}
-        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-          {level.reward && (
-            <div className="flex items-center gap-1">
-              <Award size={14} className="text-amber-500" />
-              <span className="text-xs text-gray-600">{level.reward}</span>
-            </div>
-          )}
-          
+        {/* Action */}
+        <div className="flex items-center justify-end pt-2 border-t border-gray-100">
           <motion.button
             onClick={(e) => {
               e.stopPropagation();
@@ -397,17 +352,179 @@ const LevelCard = ({ level, index, onPlay }) => {
   );
 };
 
+// Modal Join Room
+const JoinRoomModal = ({ isOpen, onClose, onJoin, loading }) => {
+  const [roomId, setRoomId] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!roomId.trim()) {
+      setError('Room ID wajib diisi');
+      return;
+    }
+    setError('');
+    onJoin(roomId.toUpperCase());
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <motion.div
+        className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl"
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-gray-800">Masuk ke Room</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Room ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition ${
+                  error ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Contoh: A7K2M9"
+                maxLength={6}
+                autoFocus
+              />
+              {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+              <p>💡 Masukkan Room ID yang diberikan oleh guru Anda</p>
+              <p className="mt-1 text-xs">Format: 6 karakter alfanumerik (contoh: A7K2M9)</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50"
+            >
+              {loading ? 'Memproses...' : 'Masuk Room'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
 // Main Component
 const DaftarSungai = () => {
   const navigate = useNavigate();
   const [selectedLevel, setSelectedLevel] = useState(null);
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showJoinRoom, setShowJoinRoom] = useState(false);
+  const [joiningRoom, setJoiningRoom] = useState(false);
+
+  // Cek status login dan ambil data user
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        navigate('/loginregister');
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUser(currentUser);
+          setUserData(data);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
+
+  // Handle Join Room
+  const handleJoinRoom = async (roomId) => {
+    try {
+      setJoiningRoom(true);
+      
+      // Cek apakah room exists
+      const roomRef = doc(db, 'rooms', roomId);
+      const roomDoc = await getDoc(roomRef);
+      
+      if (!roomDoc.exists()) {
+        alert('Room tidak ditemukan! Pastikan Room ID benar.');
+        return;
+      }
+
+      // Update user dengan room_id
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        room_id: roomId,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Update local state
+      setUserData(prev => ({
+        ...prev,
+        room_id: roomId
+      }));
+
+      alert(`✅ Berhasil masuk ke room ${roomId}!`);
+      setShowJoinRoom(false);
+      
+      // Refresh data
+      const updatedDoc = await getDoc(userRef);
+      if (updatedDoc.exists()) {
+        setUserData(updatedDoc.data());
+      }
+    } catch (error) {
+      console.error('Error joining room:', error);
+      alert('Gagal masuk room. Silakan coba lagi.');
+    } finally {
+      setJoiningRoom(false);
+    }
+  };
+
+  // Handle Logout
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   // Hitung statistik
   const stats = {
     total: levelSungai.length,
     selesai: levelSungai.filter(l => l.waktuTerbaik !== null).length,
     terbuka: levelSungai.filter(l => l.status === "terbuka").length,
-    totalBintang: levelSungai.reduce((acc, l) => acc + l.bintang, 0),
     totalSkor: levelSungai.reduce((acc, l) => acc + l.skorTertinggi, 0)
   };
 
@@ -415,6 +532,17 @@ const DaftarSungai = () => {
     setSelectedLevel(level);
     console.log("Memulai level:", level.nama);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Memuat data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-sky-50 to-blue-50">
@@ -443,25 +571,46 @@ const DaftarSungai = () => {
               </div>
             </div>
 
-            {/* Stats Overview */}
-            <div className="flex flex-wrap items-center gap-4 md:gap-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-teal-600">{stats.selesai}/{stats.total}</p>
-                <p className="text-xs text-gray-500">Level Selesai</p>
+            {/* User Info & Room ID */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* User Name */}
+              <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full">
+                <User size={16} className="text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">
+                  {userData?.name || 'Pengguna'}
+                </span>
               </div>
-              <div className="w-px h-10 bg-gray-200 hidden md:block" />
-              <div className="text-center">
-                <p className="text-2xl font-bold text-amber-500">{stats.totalBintang}/{stats.total * 3}</p>
-                <p className="text-xs text-gray-500">Bintang Kumpul</p>
-              </div>
-              <div className="w-px h-10 bg-gray-200 hidden md:block" />
-              <div className="flex items-center gap-3 bg-teal-50 px-4 py-2 rounded-xl">
-                <Trophy className="text-teal-600" size={20} />
-                <div className="text-left">
-                  <p className="text-xs text-gray-500">Total Skor</p>
-                  <p className="text-lg font-bold text-teal-700">{stats.totalSkor.toLocaleString()}</p>
-                </div>
-              </div>
+
+              {/* Room ID atau Tombol Join Room */}
+              {userData?.role === 'student' && (
+                <>
+                  {userData?.room_id ? (
+                    <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-200">
+                      <Hash size={16} className="text-indigo-600" />
+                      <span className="text-sm font-medium text-indigo-700">
+                        Room: {userData.room_id}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowJoinRoom(true)}
+                      className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-full text-sm font-medium transition duration-200 shadow-md hover:shadow-lg"
+                    >
+                      <DoorOpen size={16} />
+                      <span>Masuk Room</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full text-sm font-medium transition duration-200 border border-red-200"
+              >
+                <LogOut size={16} />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
             </div>
           </div>
         </div>
@@ -509,25 +658,33 @@ const DaftarSungai = () => {
           </div>
         </div>
 
-        {/* Info Rewards */}
+        {/* Info */}
         <motion.div 
-          className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4"
+          className="mt-8 bg-gradient-to-r from-teal-50 to-blue-50 border border-teal-200 rounded-2xl p-6 flex items-start gap-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Award className="text-amber-600" size={24} />
+          <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Trophy className="text-teal-600" size={24} />
           </div>
           <div>
-            <h3 className="font-bold text-amber-900 mb-1">Info Petualangan</h3>
-            <p className="text-amber-800 text-sm">
-              Selesaikan setiap level dengan waktu tercepat untuk mendapatkan bintang 3 dan skor tertinggi! 
-              Kumpulkan semua badge untuk menjadi Legenda Sungai! Selamat bermain!
+            <h3 className="font-bold text-teal-900 mb-1">Info Petualangan</h3>
+            <p className="text-teal-800 text-sm">
+              Selesaikan setiap level dengan waktu tercepat untuk mendapatkan skor tertinggi! 
+              Selamat bermain dan jelajahi keindahan sungai-sungai di Kalimantan Selatan!
             </p>
           </div>
         </motion.div>
       </main>
+
+      {/* Modal Join Room */}
+      <JoinRoomModal
+        isOpen={showJoinRoom}
+        onClose={() => setShowJoinRoom(false)}
+        onJoin={handleJoinRoom}
+        loading={joiningRoom}
+      />
     </div>
   );
 };

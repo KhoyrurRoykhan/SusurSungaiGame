@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Turtle, Play } from 'lucide-react';
+import { X, Turtle, Play, LogIn, LogOut, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 
 import bg_sungai from './game/assets/bg_terbaru.png';
 
@@ -123,10 +126,63 @@ const Hotspot = ({ style, onClick }) => {
 const LandingPage = () => {
 
   const [activeModal, setActiveModal] = useState(null);
+  const [user, setUser] = useState(null);
+  const [userName, setUserName] = useState('');
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  return (
+  // Cek status login
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        
+        // Ambil nama dari Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUserName(userData.name || currentUser.displayName || 'Pengguna');
+          } else {
+            setUserName(currentUser.displayName || 'Pengguna');
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setUserName(currentUser.displayName || 'Pengguna');
+        }
+      } else {
+        setUser(null);
+        setUserName('');
+      }
+      setLoading(false);
+    });
 
+    return () => unsubscribe();
+  }, []);
+
+  // Handle Logout
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setUserName('');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
+  // Handle Mulai Petualangan
+  const handleStartAdventure = () => {
+    if (user) {
+      // Jika sudah login, arahkan ke halaman daftar sungai
+      navigate('/sungai');
+    } else {
+      // Jika belum login, arahkan ke halaman login/register
+      navigate('/loginregister');
+    }
+  };
+
+  return (
     <div
       className="h-screen w-screen overflow-hidden relative bg-cover bg-center"
       style={{ backgroundImage: `url(${bg_sungai})` }}
@@ -175,6 +231,37 @@ const LandingPage = () => {
         }
       />
 
+      {/* HEADER - Login/Logout Button */}
+      <div className="absolute top-4 right-4 z-30">
+        {!loading && (
+          user ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/30">
+                <User size={16} className="text-white" />
+                <span className="text-white text-sm font-medium truncate max-w-[120px]">
+                  {userName}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-red-500/80 hover:bg-red-600/80 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md border border-white/30 transition duration-200"
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate('/loginregister')}
+              className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md border border-white/30 transition duration-200"
+            >
+              <LogIn size={16} />
+              <span>Login</span>
+            </button>
+          )
+        )}
+      </div>
+
       {/* TITLE */}
       <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
 
@@ -182,6 +269,39 @@ const LandingPage = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
         >
+
+          {/* Sapaan Selamat Datang */}
+          {!loading && user && (
+            <motion.div
+              className="mb-4"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                Selamat Datang, {userName}! 👋
+              </h2>
+              <p className="text-white/80 text-sm mt-1">
+                Ayo jelajahi sungai-sungai di Kalimantan Selatan
+              </p>
+            </motion.div>
+          )}
+
+          {!loading && !user && (
+            <motion.div
+              className="mb-4"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                Selamat Datang di Susur Sungai! 🏞️
+              </h2>
+              <p className="text-white/80 text-sm mt-1">
+                Login untuk memulai petualanganmu
+              </p>
+            </motion.div>
+          )}
 
           <motion.div
             className="mb-4 inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white border border-white/30"
@@ -215,8 +335,8 @@ const LandingPage = () => {
           </motion.p>
 
           <motion.button
-            onClick={() => navigate('/sungai')}
-            className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg"
+            onClick={handleStartAdventure}
+            className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
             animate={{
               y: [0, -6, 0],
               scale: [1, 1.05, 1]
@@ -228,10 +348,25 @@ const LandingPage = () => {
             whileHover={{
               scale: 1.15
             }}
+            whileTap={{
+              scale: 0.95
+            }}
           >
             <Play className="w-5 h-5" />
-            Mulai Petualangan
+            {user ? 'Mulai Petualangan' : 'Mulai Petualangan'}
           </motion.button>
+
+          {/* Info tambahan jika belum login */}
+          {!loading && !user && (
+            <motion.p
+              className="text-white/60 text-xs mt-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              💡 Login untuk menyimpan progres dan skor permainanmu
+            </motion.p>
+          )}
 
         </motion.div>
 
