@@ -17,12 +17,17 @@ import {
   Grid3x3,
   Eye,
   EyeOff,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Save,
+  RefreshCw,
+  X
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LayersControl } from 'react-leaflet';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../config/firebase';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
@@ -30,7 +35,7 @@ import turtleImage from './assets/kura-kura-obj.png';
 import sungaiBaritoGeoJSON from './geojson/sungabarito.json';
 import pulauKembangGeoJSON from './geojson/Pulau_Kembang.json';
 // Import data lokasi sungai
-import dataSungai from './geojson/Data_Sungai.json'; // Sesuaikan path
+import dataSungai from './geojson/Data_Sungai.json';
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -40,7 +45,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom Kura-kura Icon dengan gambar dan arah yang bisa berubah
+// Custom Kura-kura Icon
 const createTurtleIcon = (angle) => {
   return L.divIcon({
     className: 'custom-turtle-obj-icon',
@@ -119,7 +124,7 @@ const FollowTurtle = ({ position }) => {
   return null;
 };
 
-// Komponen untuk menampilkan grid kotak-kotak pada peta dengan ukuran yang dapat disesuaikan
+// Komponen grid
 const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
   const map = useMap();
   
@@ -178,7 +183,7 @@ const MapGrid = ({ bounds, stepMeters = 275, enabled = true }) => {
   return null;
 };
 
-// Fungsi untuk mengekstrak koordinat dari GeoJSON
+// Fungsi ekstrak koordinat dari GeoJSON
 const extractCoordinates = (geojson) => {
   if (geojson.features && geojson.features.length > 0) {
     const feature = geojson.features[0];
@@ -191,11 +196,9 @@ const extractCoordinates = (geojson) => {
   return [];
 };
 
-// Ekstrak koordinat dari GeoJSON
 const batasSungai = extractCoordinates(sungaiBaritoGeoJSON);
 const pulauKembang = extractCoordinates(pulauKembangGeoJSON);
 
-// Fungsi untuk menghitung titik tengah dari array koordinat
 const calculateCenter = (coordinates) => {
   if (coordinates.length === 0) return [-3.305, 114.555];
   let latSum = 0, lngSum = 0;
@@ -208,7 +211,6 @@ const calculateCenter = (coordinates) => {
 
 const centerPoint = calculateCenter(batasSungai);
 
-// Fungsi untuk mencari titik terendah (paling selatan) dan tertinggi (paling utara)
 const findExtremePoints = (coordinates) => {
   let southPoint = coordinates[0];
   let northPoint = coordinates[0];
@@ -221,11 +223,9 @@ const findExtremePoints = (coordinates) => {
 
 const { southPoint, northPoint } = findExtremePoints(batasSungai);
 
-// Titik Start (bawah/selatan) dan Finish (atas/utara)
 const startPoint = [-3.3606, 114.5229];
 const finishPoint = [-3.2819, 114.5665];
 
-// Style untuk polygon GeoJSON - Hanya garis
 const polygonStyle = {
   color: '#0ea5e9',
   weight: 3,
@@ -234,7 +234,6 @@ const polygonStyle = {
   dashArray: '5, 10'
 };
 
-// Style untuk obstacle (Pulau Kembang)
 const obstacleStyle = {
   weight: 2,
   opacity: 0.9,
@@ -242,7 +241,6 @@ const obstacleStyle = {
   dashArray: null
 };
 
-// Fungsi untuk mengecek apakah titik berada di dalam obstacle
 const isPointInObstacle = (point, obstacle) => {
   const x = point[1], y = point[0];
   let inside = false;
@@ -256,7 +254,6 @@ const isPointInObstacle = (point, obstacle) => {
   return inside;
 };
 
-// Fungsi untuk mengecek apakah titik valid (di dalam sungai dan tidak di obstacle)
 const isValidPosition = (point) => {
   const inRiver = isPointInPolygon(point, batasSungai);
   if (!inRiver) return false;
@@ -265,7 +262,6 @@ const isValidPosition = (point) => {
   return true;
 };
 
-// Fungsi untuk mengecek titik di dalam polygon (untuk batas sungai)
 const isPointInPolygon = (point, polygon) => {
   const x = point[1], y = point[0];
   let inside = false;
@@ -279,12 +275,10 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
-// ======== TAMBAHAN: FILTER LOKASI SUNGAI BARITO ========
-// Filter lokasi dengan Nama_Sungai === "Sungai Barito" dan parsing koordinat
+// Filter lokasi Sungai Barito
 const lokasiSungaiBarito = dataSungai
   .filter(item => item.Nama_Sungai === "Sungai Barito")
   .map(item => {
-    // Ganti koma dengan titik untuk parsing float
     const lat = parseFloat(item.Latitude.replace(/,/g, '.'));
     const lng = parseFloat(item.Longitude.replace(/,/g, '.'));
     return {
@@ -293,9 +287,8 @@ const lokasiSungaiBarito = dataSungai
       lng
     };
   })
-  .filter(item => !isNaN(item.lat) && !isNaN(item.lng)); // filter yang valid
+  .filter(item => !isNaN(item.lat) && !isNaN(item.lng));
 
-// Fungsi untuk membuat ikon marker berdasarkan kategori
 const getMarkerIcon = (kategori) => {
   const colors = {
     'Tempat Ibadah': '#3b82f6',
@@ -335,11 +328,17 @@ const getMarkerIcon = (kategori) => {
 const SungaiBarito = () => {
   const [alertMsg, setAlertMsg] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
   const obstacleRef = useRef(null);
   const textareaRef = useRef(null);
+  
+  // Ambil data dari state
+  const gameState = location.state || {};
+  const dbKey = gameState.dbKey || 'barito';
+  const existingData = gameState || {};
   
   // Turtle State
   const [turtlePos, setTurtlePos] = useState(startPoint);
@@ -351,6 +350,8 @@ const SungaiBarito = () => {
   const [startTime, setStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [collisionCount, setCollisionCount] = useState(0);
   
   // State untuk jejak perjalanan
   const [trail, setTrail] = useState([startPoint]);
@@ -359,6 +360,15 @@ const SungaiBarito = () => {
   // State untuk grid
   const [gridEnabled, setGridEnabled] = useState(true);
   const [gridSizeMeters, setGridSizeMeters] = useState(275);
+
+  // State untuk modal konfirmasi update
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [newScore, setNewScore] = useState(0);
+  const [newTime, setNewTime] = useState(0);
+  const [newPath, setNewPath] = useState(0);
+  const [existingScore, setExistingScore] = useState(0);
+  const [existingTime, setExistingTime] = useState(0);
+  const [existingPath, setExistingPath] = useState(0);
 
   // Timer
   useEffect(() => {
@@ -392,6 +402,94 @@ const SungaiBarito = () => {
       textareaRef.current.focus();
     }
   }, [isExecuting, isFinished]);
+
+  // Fungsi untuk menghitung skor
+  const calculateScore = (collisions) => {
+    // Skor = 100 - (collisionCount × 5), minimal 0
+    return Math.max(0, 100 - (collisions * 5));
+  };
+
+  // Fungsi untuk menyimpan data ke database
+  const saveToDatabase = async () => {
+    try {
+      setIsSaving(true);
+      
+      const user = auth.currentUser;
+      if (!user) {
+        alert('Anda harus login terlebih dahulu!');
+        return false;
+      }
+
+      // Hitung skor dengan fungsi calculateScore
+      const skor = calculateScore(collisionCount);
+      const pathSegments = trail.length - 1;
+
+      const gameData = {
+        skor: skor,
+        time: elapsedTime,
+        path: pathSegments,
+        updatedAt: new Date().toISOString()
+      };
+
+      console.log('💾 Data yang akan disimpan:', {
+        sungai: dbKey,
+        skor: skor,
+        time: elapsedTime,
+        pathSegments: pathSegments,
+        collisionCount: collisionCount,
+        skorFormula: `100 - (${collisionCount} × 5) = ${skor}`
+      });
+
+      const docRef = doc(db, 'game_skor', user.uid);
+      const docSnap = await getDoc(docRef);
+      
+      let existingData = {};
+      if (docSnap.exists()) {
+        existingData = docSnap.data();
+      }
+
+      const updatedData = {
+        ...existingData,
+        [dbKey]: gameData,
+        id_student: user.uid,
+        student_name: user.displayName || user.email || 'Unknown',
+        updatedAt: new Date().toISOString()
+      };
+
+      await setDoc(docRef, updatedData, { merge: true });
+
+      console.log('✅ Data berhasil disimpan!');
+      return true;
+    } catch (error) {
+      console.error('❌ Error saving to database:', error);
+      alert('Gagal menyimpan data. Silakan coba lagi.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Fungsi untuk mengecek data existing di database
+  const checkExistingData = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return null;
+
+      const docRef = doc(db, 'game_skor', user.uid);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data[dbKey]) {
+          return data[dbKey];
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error checking existing data:', error);
+      return null;
+    }
+  };
 
   // Calculate new position
   const calculateNewPos = (lat, lng, angle, distance) => {
@@ -449,7 +547,7 @@ const SungaiBarito = () => {
     return lastValid;
   };
 
-  // Modifikasi executeCommand untuk forward, backward, goto
+  // Execute command
   const executeCommand = async (cmd) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
@@ -466,7 +564,20 @@ const SungaiBarito = () => {
             await animateMove(boundaryPos);
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
-            setAlertMsg("⚠️ Kura-kura mentok di batas sungai atau pulau! Perintah tidak dapat dilanjutkan.");
+            
+            // Hitung skor saat ini sebelum tabrakan
+            const currentScore = calculateScore(collisionCount);
+            // Tambah tabrakan
+            setCollisionCount(prev => prev + 1);
+            // Hitung skor baru setelah tabrakan
+            const newScore = calculateScore(collisionCount + 1);
+            
+            // Cek apakah skor sudah 0
+            if (currentScore === 0) {
+              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${collisionCount + 1}x)`);
+            } else {
+              setAlertMsg(`⚠️ Kura-kura menabrak batas! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${collisionCount + 1})`);
+            }
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Perintah melebihi batas wilayah');
           } else {
@@ -476,7 +587,9 @@ const SungaiBarito = () => {
         await animateMove(targetPos);
         setTurtlePos(targetPos);
         setTrail(prev => [...prev, targetPos]);
-        if (checkFinish(targetPos)) setIsFinished(true);
+        if (checkFinish(targetPos)) {
+          setIsFinished(true);
+        }
         break;
         
       case 'backward':
@@ -489,7 +602,16 @@ const SungaiBarito = () => {
             await animateMove(boundaryPos);
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
-            setAlertMsg("⚠️ Kura-kura mentok di batas sungai atau pulau! Perintah tidak dapat dilanjutkan.");
+            
+            const currentScore = calculateScore(collisionCount);
+            setCollisionCount(prev => prev + 1);
+            const newScore = calculateScore(collisionCount + 1);
+            
+            if (currentScore === 0) {
+              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${collisionCount + 1}x)`);
+            } else {
+              setAlertMsg(`⚠️ Kura-kura menabrak batas! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${collisionCount + 1})`);
+            }
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Perintah melebihi batas wilayah');
           } else {
@@ -499,7 +621,9 @@ const SungaiBarito = () => {
         await animateMove(backTarget);
         setTurtlePos(backTarget);
         setTrail(prev => [...prev, backTarget]);
-        if (checkFinish(backTarget)) setIsFinished(true);
+        if (checkFinish(backTarget)) {
+          setIsFinished(true);
+        }
         break;
         
       case 'left':
@@ -533,7 +657,16 @@ const SungaiBarito = () => {
             await animateMove(boundaryPos);
             setTurtlePos(boundaryPos);
             setTrail(prev => [...prev, boundaryPos]);
-            setAlertMsg("⚠️ Titik tujuan di luar batas, kura-kura hanya sampai batas terdekat.");
+            
+            const currentScore = calculateScore(collisionCount);
+            setCollisionCount(prev => prev + 1);
+            const newScore = calculateScore(collisionCount + 1);
+            
+            if (currentScore === 0) {
+              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${collisionCount + 1}x)`);
+            } else {
+              setAlertMsg(`⚠️ Kura-kura menabrak batas! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${collisionCount + 1})`);
+            }
             setTimeout(() => setAlertMsg(null), 3000);
             throw new Error('Titik tujuan tidak valid');
           } else {
@@ -543,7 +676,9 @@ const SungaiBarito = () => {
         await animateMove(gotoPos);
         setTurtlePos(gotoPos);
         setTrail(prev => [...prev, gotoPos]);
-        if (checkFinish(gotoPos)) setIsFinished(true);
+        if (checkFinish(gotoPos)) {
+          setIsFinished(true);
+        }
         break;
         
       default:
@@ -618,6 +753,8 @@ const SungaiBarito = () => {
     setElapsedTime(0);
     setIsFinished(false);
     setTrail([startPoint]);
+    setCollisionCount(0);
+    setShowUpdateModal(false);
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -625,9 +762,61 @@ const SungaiBarito = () => {
     }, 100);
   };
 
-  // Hapus jejak
-  const clearTrail = () => {
-    setTrail([turtlePos]);
+  // Handle finish - DIPERBAIKI LEBIH ROBUST
+const handleFinish = async () => {
+  setIsFinished(true);
+  
+  const finalSkor = calculateScore(collisionCount);
+  const pathSegments = trail.length - 1;
+  
+  setNewScore(finalSkor);
+  setNewTime(elapsedTime);
+  setNewPath(pathSegments);
+  
+  const existing = await checkExistingData();
+  
+  // Cek apakah data existing ada dan memiliki nilai yang valid (bukan 0 semua)
+  let hasValidData = false;
+  
+  if (existing) {
+    // Cek apakah ada nilai yang bukan 0 (skor > 0 atau time > 0 atau path > 0)
+    hasValidData = (existing.skor > 0 || existing.time > 0 || existing.path > 0);
+  }
+  
+  if (existing && hasValidData) {
+    // Ada data valid (bukan 0,0,0), tampilkan modal konfirmasi
+    console.log('📊 Data existing valid, tampilkan modal konfirmasi');
+    setExistingScore(existing.skor || 0);
+    setExistingTime(existing.time || 0);
+    setExistingPath(existing.path || 0);
+    setShowUpdateModal(true);
+  } else {
+    // Tidak ada data atau data kosong (0,0,0), langsung simpan
+    console.log('📝 Tidak ada data valid, langsung simpan data baru');
+    const saved = await saveToDatabase();
+    if (saved) {
+      setAlertMsg(`✅ Data berhasil disimpan! Skor: ${finalSkor}, Segmen: ${pathSegments}`);
+      setTimeout(() => setAlertMsg(null), 3000);
+    }
+  }
+};
+
+  // Handle update decision
+  const handleUpdateDecision = async (shouldUpdate) => {
+    setShowUpdateModal(false);
+    
+    if (shouldUpdate) {
+      // Update dengan data baru
+      const saved = await saveToDatabase();
+      if (saved) {
+        setAlertMsg(`✅ Data berhasil diupdate! Skor: ${newScore}`);
+        setTimeout(() => setAlertMsg(null), 3000);
+      }
+    } else {
+      // Pertahankan data lama
+      setAlertMsg(`ℹ️ Data lama dipertahankan. Skor: ${existingScore}`);
+      setTimeout(() => setAlertMsg(null), 3000);
+    }
   };
 
   const formatTime = (seconds) => {
@@ -635,6 +824,13 @@ const SungaiBarito = () => {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Update isFinished ketika mencapai finish
+  useEffect(() => {
+    if (checkFinish(turtlePos) && !isFinished && startTime) {
+      handleFinish();
+    }
+  }, [turtlePos]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-900">
@@ -661,6 +857,16 @@ const SungaiBarito = () => {
             <Clock size={16} className="text-amber-400" />
             <span className="text-white font-mono">{formatTime(elapsedTime)}</span>
           </div>
+          <div className="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-lg">
+            <Trophy size={16} className="text-purple-400" />
+            <span className="text-white font-mono">{calculateScore(collisionCount)}</span>
+          </div>
+          {collisionCount > 0 && (
+            <div className="flex items-center gap-2 bg-red-900/50 px-3 py-1 rounded-lg border border-red-600">
+              <AlertCircle size={16} className="text-red-400" />
+              <span className="text-red-300 text-sm">Tabrakan: {collisionCount}x</span>
+            </div>
+          )}
           <div className="flex items-center gap-2 bg-green-900/50 px-3 py-1 rounded-lg border border-green-600">
             <Flag size={16} className="text-green-400" />
             <span className="text-green-300 text-sm">Start → Finish</span>
@@ -730,7 +936,12 @@ const SungaiBarito = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -50 }}
                 >
-                  <div className="bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-red-400">
+                  <div className={`px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border-2 ${
+                    alertMsg.includes('✅') ? 'bg-green-600 border-green-400' : 
+                    alertMsg.includes('ℹ️') ? 'bg-blue-600 border-blue-400' :
+                    alertMsg.includes('Skor sudah 0') ? 'bg-yellow-600 border-yellow-400' :
+                    'bg-red-600 border-red-400'
+                  } text-white`}>
                     <AlertCircle size={24} />
                     <span className="font-medium">{alertMsg}</span>
                   </div>
@@ -821,7 +1032,7 @@ const SungaiBarito = () => {
               </Popup>
             </Marker>
 
-            {/* ======== TAMBAHAN: MARKER LOKASI SUNGAI BARITO ======== */}
+            {/* Marker Lokasi */}
             {lokasiSungaiBarito.map((lokasi, idx) => (
               <Marker
                 key={idx}
@@ -913,17 +1124,16 @@ const SungaiBarito = () => {
                   opacity: 0.6,
                   border: '2px solid #5D3A1A'
                 }}></div>
-                {/* <span className="text-gray-700">Pulau Kembang (Obstacle)</span> */}
+                <span className="text-gray-700">Pulau Kembang</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-0 border-t border-gray-400 border-dashed" style={{ borderTop: `1px dashed ${gridEnabled ? '#9ca3af' : '#6b7280'}` }}></div>
                   <span className="text-gray-700">Grid Peta ({gridSizeMeters} m)</span>
                   {!gridEnabled && <span className="text-xs text-gray-400">(tersembunyi)</span>}
                 </div>
-                {/* Tambahan legenda untuk marker lokasi */}
                 <div className="flex items-center gap-2 border-t border-gray-200 pt-2 mt-2">
                   <div className="w-6 h-6 rounded-full bg-gray-500 border-2 border-white shadow flex items-center justify-center text-xs text-white font-bold">?</div>
-                  <span className="text-gray-700">Lokasi (berwarna berdasarkan kategori)</span>
+                  <span className="text-gray-700">Lokasi (berwarna)</span>
                 </div>
             </div>
           </div>
@@ -1007,7 +1217,7 @@ const SungaiBarito = () => {
             )}
           </div>
 
-          {/* ======== TAMBAHAN: DAFTAR LOKASI SUNGAI BARITO ======== */}
+          {/* Daftar Lokasi */}
           <div className="p-4 border-t border-gray-700 max-h-60 overflow-y-auto">
             <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
               <MapPin size={16} />
@@ -1050,6 +1260,19 @@ const SungaiBarito = () => {
                     Math.pow(trail[trail.length-1][0] - trail[0][0], 2) + 
                     Math.pow(trail[trail.length-1][1] - trail[0][1], 2)
                   ) * 111).toFixed(2) : 0)} km
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400">Tabrakan:</span>
+              <span className={collisionCount > 0 ? 'text-red-400 font-bold' : 'text-green-400 font-bold'}>
+                {collisionCount > 0 ? `⚠️ ${collisionCount}x` : '✅ 0x'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400">Skor:</span>
+              <span className="text-purple-400 font-bold">
+                {isFinished ? calculateScore(collisionCount) : '—'}
+                {collisionCount > 0 && ` (${100 - (collisionCount * 5)})`}
               </span>
             </div>
             
@@ -1100,14 +1323,105 @@ const SungaiBarito = () => {
               <div><span className="text-teal-400">backward</span> / <span className="text-teal-400">bk</span> [m]</div>
               <div><span className="text-teal-400">left</span> / <span className="text-teal-400">lt</span> [°]</div>
               <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
+              <div><span className="text-teal-400">goto</span> [lat] [lng]</div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              <span className="text-red-400">⚠️</span> Setiap tabrakan mengurangi 5 poin (minimal 0)
+              <br />
+              <span className="text-green-400">✅</span> Skor = 100 - (tabrakan × 5), minimal 0
+              <br />
+              <span className="text-amber-400">📊</span> Path = jumlah segmen jejak
             </div>
           </div>
         </div>
       </div>
 
+      {/* Modal Konfirmasi Update Data */}
+      <AnimatePresence>
+        {showUpdateModal && (
+          <motion.div
+            className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl"
+              initial={{ scale: 0.5, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.5, y: 50 }}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                  <RefreshCw size={24} className="text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Update Data?</h2>
+                  <p className="text-sm text-gray-500">Anda sudah memiliki data untuk sungai ini</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                <h3 className="text-sm font-bold text-gray-700 mb-3 text-center">Perbandingan Data</h3>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="text-xs text-gray-500 font-bold">Data</div>
+                  <div className="text-xs text-gray-500 font-bold">Lama</div>
+                  <div className="text-xs text-gray-500 font-bold">Baru</div>
+                  <div className="text-xs text-gray-500 font-bold">Status</div>
+                  
+                  <div className="text-xs text-gray-600">Skor</div>
+                  <div className="text-sm font-bold text-gray-700">{existingScore}</div>
+                  <div className="text-sm font-bold text-teal-600">{newScore}</div>
+                  <div className={`text-xs font-bold ${newScore > existingScore ? 'text-green-600' : newScore < existingScore ? 'text-red-600' : 'text-gray-500'}`}>
+                    {newScore > existingScore ? '↑ Lebih baik' : newScore < existingScore ? '↓ Lebih rendah' : 'Sama'}
+                  </div>
+                  
+                  <div className="text-xs text-gray-600">Waktu</div>
+                  <div className="text-sm font-bold text-gray-700">{formatTime(existingTime)}</div>
+                  <div className="text-sm font-bold text-teal-600">{formatTime(newTime)}</div>
+                  <div className={`text-xs font-bold ${newTime < existingTime ? 'text-green-600' : newTime > existingTime ? 'text-red-600' : 'text-gray-500'}`}>
+                    {newTime < existingTime ? '↑ Lebih cepat' : newTime > existingTime ? '↓ Lebih lambat' : 'Sama'}
+                  </div>
+                  
+                  <div className="text-xs text-gray-600">Segmen</div>
+                  <div className="text-sm font-bold text-gray-700">{existingPath}</div>
+                  <div className="text-sm font-bold text-teal-600">{newPath}</div>
+                  <div className={`text-xs font-bold ${newPath < existingPath ? 'text-green-600' : newPath > existingPath ? 'text-red-600' : 'text-gray-500'}`}>
+                    {newPath < existingPath ? '↑ Lebih pendek' : newPath > existingPath ? '↓ Lebih panjang' : 'Sama'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-800">
+                <p className="font-bold">⚠️ Perhatian!</p>
+                <p>Jika Anda memilih "Update", data lama akan diganti dengan data baru ini. 
+                Tindakan ini tidak dapat dibatalkan.</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleUpdateDecision(false)}
+                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+                >
+                  <X size={18} />
+                  Pertahankan Lama
+                </button>
+                <button
+                  onClick={() => handleUpdateDecision(true)}
+                  className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Save size={18} />
+                  Update Baru
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Victory Modal */}
       <AnimatePresence>
-        {isFinished && (
+        {isFinished && !showUpdateModal && (
           <motion.div
             className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
             initial={{ opacity: 0 }}
@@ -1118,6 +1432,7 @@ const SungaiBarito = () => {
               className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl"
               initial={{ scale: 0.5, y: 50 }}
               animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.5, y: 50 }}
             >
               <motion.div 
                 className="w-24 h-24 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden"
@@ -1128,18 +1443,57 @@ const SungaiBarito = () => {
               </motion.div>
               
               <h2 className="text-3xl font-bold text-gray-800 mb-2">Level Selesai! 🎉</h2>
-              <p className="text-gray-600 mb-6">Kura-kura berhasil mencapai FINISH tanpa menabrak pulau!</p>
+              <p className="text-gray-600 mb-6">
+                {collisionCount === 0 
+                  ? 'Kura-kura berhasil mencapai FINISH tanpa tabrakan!'
+                  : `Kura-kura berhasil mencapai FINISH dengan ${collisionCount} kali tabrakan!`}
+              </p>
               
               <div className="bg-gray-100 rounded-2xl p-4 mb-6">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Waktu Penyelesaian</p>
-                  <p className="text-4xl font-bold text-teal-600 font-mono mt-1">{formatTime(elapsedTime)}</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Waktu</p>
+                    <p className="text-2xl font-bold text-teal-600 font-mono mt-1">{formatTime(elapsedTime)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Skor</p>
+                    <p className={`text-2xl font-bold font-mono mt-1 ${collisionCount === 0 ? 'text-green-600' : collisionCount >= 20 ? 'text-red-600' : 'text-orange-600'}`}>
+                      {calculateScore(collisionCount)}
+                    </p>
+                    {collisionCount > 0 && (
+                      <p className="text-[10px] text-gray-400">100 - ({collisionCount}×5) = {calculateScore(collisionCount)}</p>
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Segmen</p>
+                    <p className="text-2xl font-bold text-amber-600 font-mono mt-1">{trail.length - 1}</p>
+                  </div>
                 </div>
-                <div className="flex justify-between mt-3 text-xs">
-                  <span className="text-gray-500">Panjang Jejak:</span>
-                  <span className="text-amber-600 font-bold">{trail.length - 1} segmen</span>
-                </div>
+                {collisionCount > 0 && (
+                  <div className="mt-2 text-xs text-red-500">
+                    ⚠️ {collisionCount}x tabrakan × 5 = -{Math.min(collisionCount * 5, 100)} poin
+                    {collisionCount >= 20 && " (Skor minimal 0)"}
+                  </div>
+                )}
+                {collisionCount >= 20 && (
+                  <div className="mt-1 text-xs text-yellow-600">
+                    ℹ️ Skor sudah mencapai 0, tabrakan selanjutnya tidak mengurangi skor lagi
+                  </div>
+                )}
               </div>
+              
+              {isSaving ? (
+                <div className="flex items-center justify-center gap-2 py-3 text-gray-600">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-600"></div>
+                  <span>Menyimpan data...</span>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-4 text-sm text-green-700">
+                  ✅ Data berhasil disimpan!
+                  <br />
+                  <span className="text-xs">Skor: {calculateScore(collisionCount)} | Segmen: {trail.length - 1}</span>
+                </div>
+              )}
               
               <div className="flex gap-3">
                 <button

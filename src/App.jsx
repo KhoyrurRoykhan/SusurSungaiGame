@@ -24,7 +24,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Maintenance />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/loginregister" element={<LoginRegister />} />
         <Route path="/dashboard" element={<DashboardGuru />} />
         <Route path="/sungai" element={<DaftarSungai />} />

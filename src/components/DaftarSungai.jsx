@@ -17,7 +17,9 @@ import {
   Hash,
   DoorOpen,
   X,
-  Check
+  Check,
+  Star,
+  Route
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -32,20 +34,17 @@ import GambarSungaiAwang from "./assets/sungaiawang.jpg";
 import GambarSungaiMartapura from "./assets/sungaimartapura.jpg";
 import GambarSungaiPelambuan from "./assets/sungaipelambuan.jpg";
 
-// Data dummy sungai sebagai level game - SEMUA TERBUKA
-const levelSungai = [
+// Data dasar sungai - PATH UNTUK NAVIGASI ADA DI SINI
+const baseLevelSungai = [
   {
     id: 1,
     nama: "Sungai Barito",
     lokasi: "Perbatasan Kota Banjarmasin & Kab. Barito Kuala",
     deskripsi: "Sungai terpanjang di Kalimantan Selatan, menjadi jalur transportasi utama dan memiliki keanekaragaman hayati yang tinggi.",
     gambar: GambarSungaiBarito,
-    status: "terbuka",
-    waktuTerbaik: "05:32",
-    pernahDimainkan: true,
-    skorTertinggi: 850,
     tingkatKesulitan: "Mudah",
-    path: "/game/barito"
+    navigatePath: "/game/barito", // <-- PATH UNTUK NAVIGASI
+    dbKey: "barito"
   },
   {
     id: 2,
@@ -53,12 +52,9 @@ const levelSungai = [
     lokasi: "Perbatasan Banjarmasin Utara & Barito Kuala",
     deskripsi: "Sungai yang membelah kota Marabahan, kaya akan ekosistem mangrove dan biota air.",
     gambar: GambarSungaiAlalak,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sedang",
-    path: "/game/alalak"
+    navigatePath: "/game/alalak",
+    dbKey: "alalak"
   },
   {
     id: 3,
@@ -66,12 +62,9 @@ const levelSungai = [
     lokasi: "Perbatasan Banjarmasin Utara & Barito Kuala",
     deskripsi: "Eksplorasi lebih dalam ekosistem mangrove Sungai Alalak.",
     gambar: GambarSungaiAlalak,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sedang",
-    path: "/game/alalak2"
+    navigatePath: "/game/alalak2",
+    dbKey: "alalak_part2"
   },
   {
     id: 4,
@@ -79,12 +72,9 @@ const levelSungai = [
     lokasi: "Banjarmasin Utara",
     deskripsi: "Sungai Andai yang namanya berasal dari sejarah sungai berarus landai (surut) yang kemudian digali dalam bergotong royong agar bisa dilalui perahu.",
     gambar: GambarSungaiAwang,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sulit",
-    path: "/game/awang"
+    navigatePath: "/game/awang",
+    dbKey: "awang"
   },
   {
     id: 5,
@@ -92,12 +82,9 @@ const levelSungai = [
     lokasi: "Banjarmasin",
     deskripsi: "Sungai yang terkenal dengan industri batu permata dan budaya sungai yang masih lestari.",
     gambar: GambarSungaiMartapura,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sulit",
-    path: "/game/martapura4"
+    navigatePath: "/game/martapura4",
+    dbKey: "martapura"
   },
   {
     id: 6,
@@ -105,12 +92,9 @@ const levelSungai = [
     lokasi: "Banjarmasin",
     deskripsi: "Lanjutan petualangan menyusuri keindahan Sungai Martapura.",
     gambar: GambarSungaiMartapura,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sulit",
-    path: "/game/martapura3"
+    navigatePath: "/game/martapura3",
+    dbKey: "martapura_part2"
   },
   {
     id: 7,
@@ -118,12 +102,9 @@ const levelSungai = [
     lokasi: "Banjarmasin",
     deskripsi: "Tantangan ekstrem di Sungai Martapura, hadapi arus deras.",
     gambar: GambarSungaiMartapura,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sulit",
-    path: "/game/martapura2"
+    navigatePath: "/game/martapura2",
+    dbKey: "martapura_part3"
   },
   {
     id: 8,
@@ -131,12 +112,9 @@ const levelSungai = [
     lokasi: "Banjarmasin",
     deskripsi: "Puncak petualangan di Sungai Martapura, uji seluruh kemampuanmu.",
     gambar: GambarSungaiMartapura,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Legenda",
-    path: "/game/martapura"
+    navigatePath: "/game/martapura",
+    dbKey: "martapura_part4"
   },
   {
     id: 9,
@@ -144,12 +122,9 @@ const levelSungai = [
     lokasi: "Banjarmasin Barat",
     deskripsi: "Sungai yang menjadi kawasan industri dan permukiman tradisional dengan nilai sejarah tinggi.",
     gambar: GambarSungaiPelambuan,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Legenda",
-    path: "/game/pelambuan"
+    navigatePath: "/game/pelambuan",
+    dbKey: "pelambuan"
   },
   {
     id: 10,
@@ -157,12 +132,9 @@ const levelSungai = [
     lokasi: "Banjarmasin Utara",
     deskripsi: "Sungai yang terkenal dengan pasar terapungnya, menjadi ikon budaya sungai di Kalimantan Selatan.",
     gambar: GambarSungaiKuin,
-    status: "terbuka",
-    waktuTerbaik: "08:15",
-    pernahDimainkan: true,
-    skorTertinggi: 720,
     tingkatKesulitan: "Mudah",
-    path: "/game/kuin"
+    navigatePath: "/game/kuin",
+    dbKey: "kuin"
   },
   {
     id: 11,
@@ -170,12 +142,9 @@ const levelSungai = [
     lokasi: "Banjarmasin Utara",
     deskripsi: "Lanjutan petualangan di Sungai Kuin, telusuri lebih dalam keanekaragaman hayati sungai.",
     gambar: GambarSungaiKuin,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sedang",
-    path: "/game/kuin2"
+    navigatePath: "/game/kuin2",
+    dbKey: "kuin_part2"
   },
   {
     id: 12,
@@ -183,12 +152,9 @@ const levelSungai = [
     lokasi: "Banjarmasin Utara",
     deskripsi: "Tantangan terakhir di Sungai Kuin, uji kemampuan navigasi dan pengetahuanmu.",
     gambar: GambarSungaiKuin,
-    status: "terbuka",
-    waktuTerbaik: null,
-    pernahDimainkan: false,
-    skorTertinggi: 0,
     tingkatKesulitan: "Sulit",
-    path: "/game/kuin3"
+    navigatePath: "/game/kuin3",
+    dbKey: "kuin_part3"
   },
 ];
 
@@ -208,23 +174,78 @@ const DifficultyBadge = ({ level }) => {
   );
 };
 
+// Format waktu dari detik ke MM:SS
+const formatTime = (seconds) => {
+  if (!seconds || seconds === 0) return "--:--";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+};
+
 // Level Card Component
-const LevelCard = ({ level, index, onPlay }) => {
+const LevelCard = ({ level, index, onPlay, gameData }) => {
   const navigate = useNavigate();
   const isLocked = level.status === "terkunci";
-  const isCompleted = level.status === "selesai" || level.waktuTerbaik !== null;
   
-  const handlePlay = () => {
-    if (!isLocked) {
+  // Ambil data dari database
+  const dbData = gameData || {};
+  const skor = dbData.skor || 0;
+  const waktu = dbData.time || null;
+  const dbPath = dbData.path || null; // Ini adalah path dari database (jalur gambar)
+  
+  const isCompleted = skor > 0 || waktu !== null;
+  const hasDbPath = dbPath !== null && dbPath !== "";
+  
+  // PATH UNTUK NAVIGASI - gunakan navigatePath dari level
+  const navigationPath = level.navigatePath;
+  
+  const handlePlay = (e) => {
+    e.stopPropagation();
+    
+    console.log("🎮 Tombol diklik untuk:", level.nama);
+    console.log("📌 Navigasi ke:", navigationPath);
+    console.log("🗺️ Database path (jalur gambar):", dbPath);
+    
+    if (!isLocked && navigationPath) {
       if (onPlay) {
         onPlay(level);
       }
-      navigate(level.path, { 
+      
+      // Navigasi menggunakan navigationPath
+      navigate(navigationPath, { 
         state: { 
           levelId: level.id,
           levelName: level.nama,
-          waktuTerbaik: level.waktuTerbaik,
-          pernahDimainkan: level.pernahDimainkan
+          dbKey: level.dbKey,
+          skor: skor,
+          waktu: waktu,
+          path: dbPath // Kirim dbPath sebagai data tambahan
+        } 
+      });
+    } else {
+      console.error("❌ Path navigasi tidak ditemukan untuk:", level.nama);
+    }
+  };
+  
+  const handleCardClick = () => {
+    if (isLocked) return;
+    
+    console.log("🖱️ Card diklik:", level.nama);
+    console.log("📌 Navigasi ke:", navigationPath);
+    
+    if (navigationPath) {
+      if (onPlay) {
+        onPlay(level);
+      }
+      
+      navigate(navigationPath, { 
+        state: { 
+          levelId: level.id,
+          levelName: level.nama,
+          dbKey: level.dbKey,
+          skor: skor,
+          waktu: waktu,
+          path: dbPath
         } 
       });
     }
@@ -232,11 +253,13 @@ const LevelCard = ({ level, index, onPlay }) => {
   
   return (
     <motion.div
-      className={`group relative rounded-2xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 cursor-pointer`}
+      className={`group relative rounded-2xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 ${
+        isLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+      }`}
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.5 }}
-      onClick={handlePlay}
+      onClick={handleCardClick}
     >
       {/* Gambar Container */}
       <div className="relative h-48 overflow-hidden">
@@ -268,6 +291,13 @@ const LevelCard = ({ level, index, onPlay }) => {
             <><Unlock size={12} /> Terbuka</>
           )}
         </div>
+
+        {/* Path Badge di Gambar */}
+        {hasDbPath && (
+          <div className="absolute top-3 right-3 px-2 py-1 bg-blue-500/80 backdrop-blur-sm rounded-lg text-white text-[10px] font-bold flex items-center gap-1">
+            <Route size={10} /> Path Tersedia
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -288,60 +318,79 @@ const LevelCard = ({ level, index, onPlay }) => {
           {level.deskripsi}
         </p>
 
-        {/* Stats Grid */}
+        {/* Stats Grid - Data dari Database */}
         <div className="grid grid-cols-2 gap-2 mb-3">
-          {/* Waktu Terbaik */}
+          {/* Skor */}
           <div className={`flex items-center gap-2 p-1.5 rounded-lg ${
-            isCompleted ? 'bg-green-50' : 'bg-gray-50'
+            skor > 0 ? 'bg-purple-50' : 'bg-gray-50'
           }`}>
-            <Timer size={14} className={isCompleted ? 'text-green-600' : 'text-gray-400'} />
+            <Star size={14} className={skor > 0 ? 'text-purple-600' : 'text-gray-400'} />
             <div>
-              <p className="text-[9px] text-gray-500">Waktu Terbaik</p>
+              <p className="text-[9px] text-gray-500">Skor</p>
               <p className={`text-xs font-bold ${
-                isCompleted ? 'text-green-700' : 'text-gray-400'
+                skor > 0 ? 'text-purple-700' : 'text-gray-400'
               }`}>
-                {level.waktuTerbaik ? level.waktuTerbaik : "--:--"}
+                {skor > 0 ? skor : "0"}
               </p>
             </div>
           </div>
 
-          {/* Skor Tertinggi */}
+          {/* Waktu */}
           <div className={`flex items-center gap-2 p-1.5 rounded-lg ${
-            level.skorTertinggi > 0 ? 'bg-purple-50' : 'bg-gray-50'
+            waktu !== null && waktu > 0 ? 'bg-blue-50' : 'bg-gray-50'
           }`}>
-            <Target size={14} className={level.skorTertinggi > 0 ? 'text-purple-600' : 'text-gray-400'} />
+            <Timer size={14} className={waktu !== null && waktu > 0 ? 'text-blue-600' : 'text-gray-400'} />
             <div>
-              <p className="text-[9px] text-gray-500">Skor Tertinggi</p>
+              <p className="text-[9px] text-gray-500">Durasi</p>
               <p className={`text-xs font-bold ${
-                level.skorTertinggi > 0 ? 'text-purple-700' : 'text-gray-400'
+                waktu !== null && waktu > 0 ? 'text-blue-700' : 'text-gray-400'
               }`}>
-                {level.skorTertinggi > 0 ? level.skorTertinggi : "0"}
+                {waktu !== null && waktu > 0 ? formatTime(waktu) : "--:--"}
               </p>
             </div>
           </div>
         </div>
 
+        {/* Path Info - Menampilkan path dari database (jalur gambar) */}
+        {hasDbPath ? (
+          <div className="mb-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Route size={14} className="text-blue-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-blue-700 font-medium">Jalur Gambar</p>
+                <p className="text-xs text-blue-800 font-mono truncate">
+                  {dbPath}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Route size={14} className="text-gray-400 flex-shrink-0" />
+              <div>
+                <p className="text-[10px] text-gray-500">Jalur Gambar</p>
+                <p className="text-xs text-gray-400 italic">Belum tersedia</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action */}
         <div className="flex items-center justify-end pt-2 border-t border-gray-100">
           <motion.button
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePlay();
-            }}
+            onClick={handlePlay}
             className={`px-4 py-2 rounded-full text-sm font-bold flex items-center gap-1 transition-colors ${
               isCompleted
                 ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : level.pernahDimainkan
-                  ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-lg'
-                  : 'bg-teal-600 text-white hover:bg-teal-700 shadow-lg'
+                : 'bg-teal-600 text-white hover:bg-teal-700 shadow-lg'
             }`}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            type="button"
           >
             {isCompleted ? (
               <>Main Lagi <Play size={14} /></>
-            ) : level.pernahDimainkan ? (
-              <>Lanjutkan <Play size={14} /></>
             ) : (
               <>Mulai <Play size={14} /></>
             )}
@@ -441,8 +490,11 @@ const DaftarSungai = () => {
   const [loading, setLoading] = useState(true);
   const [showJoinRoom, setShowJoinRoom] = useState(false);
   const [joiningRoom, setJoiningRoom] = useState(false);
+  const [gameScores, setGameScores] = useState({});
+  const [levelSungai, setLevelSungai] = useState(baseLevelSungai);
+  const [loadingScores, setLoadingScores] = useState(true);
 
-  // Cek status login dan ambil data user
+  // Cek status login dan ambil data user & game_skor
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
@@ -456,23 +508,86 @@ const DaftarSungai = () => {
           const data = userDoc.data();
           setUser(currentUser);
           setUserData(data);
+          
+          await fetchGameScores(currentUser.uid);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
       } finally {
         setLoading(false);
+        setLoadingScores(false);
       }
     });
 
     return () => unsubscribe();
   }, [navigate]);
 
+  // Fetch data game_skor dari database
+  const fetchGameScores = async (userId) => {
+    try {
+      console.log('Fetching game scores for user:', userId);
+      
+      const scoreDocRef = doc(db, 'game_skor', userId);
+      const scoreDoc = await getDoc(scoreDocRef);
+      
+      if (scoreDoc.exists()) {
+        const data = scoreDoc.data();
+        console.log('Game score data:', data);
+        
+        const scoresData = {};
+        
+        Object.keys(data).forEach(key => {
+          if (key === 'id_student' || key === 'student_name' || key === 'createdAt' || key === 'updatedAt') {
+            return;
+          }
+          
+          if (typeof data[key] === 'object' && data[key] !== null) {
+            scoresData[key] = {
+              skor: data[key].skor || 0,
+              time: data[key].time || null,
+              path: data[key].path || null
+            };
+            console.log(`✅ Found data for ${key}:`, scoresData[key]);
+          }
+        });
+        
+        console.log('Final scoresData:', scoresData);
+        setGameScores(scoresData);
+        
+        // Update levelSungai dengan data dari database
+        // PENTING: Jangan timpa navigatePath!
+        const updatedLevels = baseLevelSungai.map(level => {
+          const dbData = scoresData[level.dbKey] || {};
+          const skor = dbData.skor || 0;
+          const waktu = dbData.time || null;
+          const dbPath = dbData.path || null;
+          
+          return {
+            ...level, // Pertahankan semua data dari baseLevelSungai termasuk navigatePath
+            skorTertinggi: skor,
+            waktuTerbaik: waktu ? formatTime(waktu) : null,
+            dbPath: dbPath, // Simpan dbPath sebagai properti terpisah
+            pernahDimainkan: skor > 0 || waktu !== null,
+            status: "terbuka"
+          };
+        });
+        
+        setLevelSungai(updatedLevels);
+        
+      } else {
+        console.log('No game score document found for user:', userId);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching game scores:', error);
+    }
+  };
+
   // Handle Join Room
   const handleJoinRoom = async (roomId) => {
     try {
       setJoiningRoom(true);
       
-      // Cek apakah room exists
       const roomRef = doc(db, 'rooms', roomId);
       const roomDoc = await getDoc(roomRef);
       
@@ -481,14 +596,12 @@ const DaftarSungai = () => {
         return;
       }
 
-      // Update user dengan room_id
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         room_id: roomId,
         updatedAt: new Date().toISOString()
       });
 
-      // Update local state
       setUserData(prev => ({
         ...prev,
         room_id: roomId
@@ -497,7 +610,6 @@ const DaftarSungai = () => {
       alert(`✅ Berhasil masuk ke room ${roomId}!`);
       setShowJoinRoom(false);
       
-      // Refresh data
       const updatedDoc = await getDoc(userRef);
       if (updatedDoc.exists()) {
         setUserData(updatedDoc.data());
@@ -523,17 +635,18 @@ const DaftarSungai = () => {
   // Hitung statistik
   const stats = {
     total: levelSungai.length,
-    selesai: levelSungai.filter(l => l.waktuTerbaik !== null).length,
+    selesai: levelSungai.filter(l => l.waktuTerbaik !== null || l.skorTertinggi > 0).length,
     terbuka: levelSungai.filter(l => l.status === "terbuka").length,
-    totalSkor: levelSungai.reduce((acc, l) => acc + l.skorTertinggi, 0)
+    totalSkor: levelSungai.reduce((acc, l) => acc + (l.skorTertinggi || 0), 0)
   };
 
   const handleSelectLevel = (level) => {
     setSelectedLevel(level);
     console.log("Memulai level:", level.nama);
+    console.log("Data game:", gameScores[level.dbKey]);
   };
 
-  if (loading) {
+  if (loading || loadingScores) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -573,7 +686,6 @@ const DaftarSungai = () => {
 
             {/* User Info & Room ID */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* User Name */}
               <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full">
                 <User size={16} className="text-gray-600" />
                 <span className="text-sm font-medium text-gray-700">
@@ -581,7 +693,6 @@ const DaftarSungai = () => {
                 </span>
               </div>
 
-              {/* Room ID atau Tombol Join Room */}
               {userData?.role === 'student' && (
                 <>
                   {userData?.room_id ? (
@@ -603,7 +714,6 @@ const DaftarSungai = () => {
                 </>
               )}
 
-              {/* Logout Button */}
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-full text-sm font-medium transition duration-200 border border-red-200"
@@ -625,7 +735,7 @@ const DaftarSungai = () => {
               <span className="text-sm font-bold text-teal-600">{Math.round((stats.selesai / stats.total) * 100)}%</span>
             </div>
             <div className="text-sm text-gray-500">
-              {stats.terbuka} level tersedia
+              Total Skor: <span className="font-bold text-purple-600">{stats.totalSkor}</span>
             </div>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -639,7 +749,6 @@ const DaftarSungai = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Semua Level */}
         <div className="mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
             <Unlock size={20} className="text-green-500" />
@@ -653,6 +762,7 @@ const DaftarSungai = () => {
                 level={level} 
                 index={index}
                 onPlay={handleSelectLevel}
+                gameData={gameScores[level.dbKey]}
               />
             ))}
           </div>
@@ -672,8 +782,19 @@ const DaftarSungai = () => {
             <h3 className="font-bold text-teal-900 mb-1">Info Petualangan</h3>
             <p className="text-teal-800 text-sm">
               Selesaikan setiap level dengan waktu tercepat untuk mendapatkan skor tertinggi! 
-              Selamat bermain dan jelajahi keindahan sungai-sungai di Kalimantan Selatan!
+              Data skor, durasi, dan path akan tersimpan di database. Selamat bermain dan jelajahi keindahan sungai-sungai di Kalimantan Selatan!
             </p>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              <span className="flex items-center gap-1 text-teal-700">
+                <Star size={12} className="text-purple-500" /> Skor: Nilai pencapaian Anda
+              </span>
+              <span className="flex items-center gap-1 text-teal-700">
+                <Timer size={12} className="text-blue-500" /> Durasi: Waktu penyelesaian
+              </span>
+              <span className="flex items-center gap-1 text-teal-700">
+                <Route size={12} className="text-blue-500" /> Jalur Gambar: Path yang digambar
+              </span>
+            </div>
           </div>
         </motion.div>
       </main>
