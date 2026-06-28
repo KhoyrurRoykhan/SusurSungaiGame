@@ -15,6 +15,7 @@ import SungaiKuinPart3 from './components/game/SungaiKuinPart3';
 import SungaiPelambuan from './components/game/SungaiPelambuan';
 import LoginRegister from './components/LoginRegister';
 import DashboardGuru from './components/DashboardGuru';
+import Maintenance from './components/Maintenance';
 
 
 
@@ -23,7 +24,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<Maintenance />} />
         <Route path="/loginregister" element={<LoginRegister />} />
         <Route path="/dashboard" element={<DashboardGuru />} />
         <Route path="/sungai" element={<DaftarSungai />} />
