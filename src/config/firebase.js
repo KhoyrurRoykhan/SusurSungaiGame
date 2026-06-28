@@ -4,14 +4,25 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
+// Konfigurasi Firebase dari environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCU4qCMjW0pHxHyPRwwKwl6kdDRbXb4YdA",
-  authDomain: "susursungai-a87c3.firebaseapp.com",
-  projectId: "susursungai-a87c3",
-  storageBucket: "susursungai-a87c3.firebasestorage.app",
-  messagingSenderId: "278653768291",
-  appId: "1:278653768291:web:05c7c7990c9e559cccde56"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
+// Validasi konfigurasi (opsional, untuk debugging)
+if (import.meta.env.DEV) {
+  console.log('🔥 Firebase Config loaded:');
+  console.log('  - API Key:', firebaseConfig.apiKey ? '✅ Set' : '❌ Missing');
+  console.log('  - Auth Domain:', firebaseConfig.authDomain ? '✅ Set' : '❌ Missing');
+  console.log('  - Project ID:', firebaseConfig.projectId ? '✅ Set' : '❌ Missing');
+  console.log('  - Storage Bucket:', firebaseConfig.storageBucket ? '✅ Set' : '❌ Missing');
+  console.log('  - App ID:', firebaseConfig.appId ? '✅ Set' : '❌ Missing');
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
