@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 // sungai
@@ -43,7 +43,7 @@ const baseLevelSungai = [
     deskripsi: "Sungai terpanjang di Kalimantan Selatan, menjadi jalur transportasi utama dan memiliki keanekaragaman hayati yang tinggi.",
     gambar: GambarSungaiBarito,
     tingkatKesulitan: "Mudah",
-    navigatePath: "/game/barito", // <-- PATH UNTUK NAVIGASI
+    navigatePath: "/game/barito",
     dbKey: "barito"
   },
   {
@@ -191,12 +191,11 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
   const dbData = gameData || {};
   const skor = dbData.skor || 0;
   const waktu = dbData.time || null;
-  const dbPath = dbData.path || null; // Ini adalah path dari database (jalur gambar)
+  const dbPath = dbData.path || null;
   
   const isCompleted = skor > 0 || waktu !== null;
   const hasDbPath = dbPath !== null && dbPath !== "";
   
-  // PATH UNTUK NAVIGASI - gunakan navigatePath dari level
   const navigationPath = level.navigatePath;
   
   const handlePlay = (e) => {
@@ -211,7 +210,6 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
         onPlay(level);
       }
       
-      // Navigasi menggunakan navigationPath
       navigate(navigationPath, { 
         state: { 
           levelId: level.id,
@@ -219,7 +217,7 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
           dbKey: level.dbKey,
           skor: skor,
           waktu: waktu,
-          path: dbPath // Kirim dbPath sebagai data tambahan
+          path: dbPath
         } 
       });
     } else {
@@ -554,8 +552,6 @@ const DaftarSungai = () => {
         console.log('Final scoresData:', scoresData);
         setGameScores(scoresData);
         
-        // Update levelSungai dengan data dari database
-        // PENTING: Jangan timpa navigatePath!
         const updatedLevels = baseLevelSungai.map(level => {
           const dbData = scoresData[level.dbKey] || {};
           const skor = dbData.skor || 0;
@@ -563,10 +559,10 @@ const DaftarSungai = () => {
           const dbPath = dbData.path || null;
           
           return {
-            ...level, // Pertahankan semua data dari baseLevelSungai termasuk navigatePath
+            ...level,
             skorTertinggi: skor,
             waktuTerbaik: waktu ? formatTime(waktu) : null,
-            dbPath: dbPath, // Simpan dbPath sebagai properti terpisah
+            dbPath: dbPath,
             pernahDimainkan: skor > 0 || waktu !== null,
             status: "terbuka"
           };
@@ -583,39 +579,57 @@ const DaftarSungai = () => {
     }
   };
 
-  // Handle Join Room
+  // Handle Join Room - DIPERBAIKI
   const handleJoinRoom = async (roomId) => {
     try {
       setJoiningRoom(true);
       
-      const roomRef = doc(db, 'rooms', roomId);
-      const roomDoc = await getDoc(roomRef);
+      // 1. Cari room berdasarkan field 'roomId' di collection 'rooms'
+      const roomsRef = collection(db, 'rooms');
+      const q = query(roomsRef, where('roomId', '==', roomId));
+      const querySnapshot = await getDocs(q);
       
-      if (!roomDoc.exists()) {
-        alert('Room tidak ditemukan! Pastikan Room ID benar.');
+      if (querySnapshot.empty) {
+        alert('❌ Room tidak ditemukan! Pastikan Room ID benar.');
+        setJoiningRoom(false);
         return;
       }
 
+      // 2. Room ditemukan, ambil data room
+      const roomDoc = querySnapshot.docs[0];
+      const roomData = roomDoc.data();
+      const roomDocId = roomDoc.id;
+      console.log('✅ Room ditemukan:', roomData);
+      console.log('📄 Document ID:', roomDocId);
+
+      // 3. Update data user dengan room_id
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         room_id: roomId,
+        room_name: roomData.roomName || roomData.roomId || roomId,
+        room_doc_id: roomDocId,
         updatedAt: new Date().toISOString()
       });
 
+      // 4. Update local state
       setUserData(prev => ({
         ...prev,
-        room_id: roomId
+        room_id: roomId,
+        room_name: roomData.roomName || roomId,
+        room_doc_id: roomDocId
       }));
 
       alert(`✅ Berhasil masuk ke room ${roomId}!`);
       setShowJoinRoom(false);
       
+      // 5. Refresh data user
       const updatedDoc = await getDoc(userRef);
       if (updatedDoc.exists()) {
         setUserData(updatedDoc.data());
       }
+      
     } catch (error) {
-      console.error('Error joining room:', error);
+      console.error('❌ Error joining room:', error);
       alert('Gagal masuk room. Silakan coba lagi.');
     } finally {
       setJoiningRoom(false);
