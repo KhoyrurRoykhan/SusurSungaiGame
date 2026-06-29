@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Turtle, Play, LogIn, LogOut, User } from 'lucide-react';
+import { X, Turtle, Play, LogIn, LogOut, User, LayoutDashboard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -128,6 +128,7 @@ const LandingPage = () => {
   const [activeModal, setActiveModal] = useState(null);
   const [user, setUser] = useState(null);
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -137,22 +138,26 @@ const LandingPage = () => {
       if (currentUser) {
         setUser(currentUser);
         
-        // Ambil nama dari Firestore
+        // Ambil nama dan role dari Firestore
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setUserName(userData.name || currentUser.displayName || 'Pengguna');
+            setUserRole(userData.role || 'student');
           } else {
             setUserName(currentUser.displayName || 'Pengguna');
+            setUserRole('student');
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
           setUserName(currentUser.displayName || 'Pengguna');
+          setUserRole('student');
         }
       } else {
         setUser(null);
         setUserName('');
+        setUserRole('');
       }
       setLoading(false);
     });
@@ -166,6 +171,7 @@ const LandingPage = () => {
       await signOut(auth);
       setUser(null);
       setUserName('');
+      setUserRole('');
     } catch (error) {
       console.error('Error logging out:', error);
     }
@@ -180,6 +186,11 @@ const LandingPage = () => {
       // Jika belum login, arahkan ke halaman login/register
       navigate('/loginregister');
     }
+  };
+
+  // Handle Dashboard Guru
+  const handleDashboard = () => {
+    navigate('/dashboard');
   };
 
   return (
@@ -242,6 +253,18 @@ const LandingPage = () => {
                   {userName}
                 </span>
               </div>
+              
+              {/* Tombol Dashboard Guru - Hanya untuk role teacher */}
+              {userRole === 'teacher' && (
+                <button
+                  onClick={handleDashboard}
+                  className="flex items-center gap-2 bg-purple-500/80 hover:bg-purple-600/80 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md border border-white/30 transition duration-200"
+                >
+                  <LayoutDashboard size={16} />
+                  <span>Dashboard</span>
+                </button>
+              )}
+              
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 bg-red-500/80 hover:bg-red-600/80 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md border border-white/30 transition duration-200"
@@ -282,7 +305,9 @@ const LandingPage = () => {
                 Selamat Datang, {userName}! 👋
               </h2>
               <p className="text-white/80 text-sm mt-1">
-                Ayo jelajahi sungai-sungai di Kalimantan Selatan
+                {userRole === 'teacher' 
+                  ? 'Kelola kelas dan pantau progres siswa' 
+                  : 'Ayo jelajahi sungai-sungai di Kalimantan Selatan'}
               </p>
             </motion.div>
           )}
@@ -334,27 +359,77 @@ const LandingPage = () => {
             Petualangan di Kota Seribu Sungai
           </motion.p>
 
-          <motion.button
-            onClick={handleStartAdventure}
-            className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
-            animate={{
-              y: [0, -6, 0],
-              scale: [1, 1.05, 1]
-            }}
-            transition={{
-              duration: 2.5,
-              repeat: Infinity
-            }}
-            whileHover={{
-              scale: 1.15
-            }}
-            whileTap={{
-              scale: 0.95
-            }}
-          >
-            <Play className="w-5 h-5" />
-            {user ? 'Mulai Petualangan' : 'Mulai Petualangan'}
-          </motion.button>
+          {/* Tombol Mulai Petualangan / Dashboard */}
+          {!loading && user && userRole === 'teacher' ? (
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <motion.button
+                onClick={handleDashboard}
+                className="px-8 py-3 bg-purple-500 text-white rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
+                animate={{
+                  y: [0, -6, 0],
+                  scale: [1, 1.05, 1]
+                }}
+                transition={{
+                  duration: 2.5,
+                  repeat: Infinity
+                }}
+                whileHover={{
+                  scale: 1.15
+                }}
+                whileTap={{
+                  scale: 0.95
+                }}
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                Dashboard Guru
+              </motion.button>
+              
+              <motion.button
+                onClick={handleStartAdventure}
+                className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
+                animate={{
+                  y: [0, -6, 0],
+                  scale: [1, 1.05, 1]
+                }}
+                transition={{
+                  duration: 2.5,
+                  repeat: Infinity,
+                  delay: 0.3
+                }}
+                whileHover={{
+                  scale: 1.15
+                }}
+                whileTap={{
+                  scale: 0.95
+                }}
+              >
+                <Play className="w-5 h-5" />
+                Mulai Petualangan
+              </motion.button>
+            </div>
+          ) : (
+            <motion.button
+              onClick={handleStartAdventure}
+              className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
+              animate={{
+                y: [0, -6, 0],
+                scale: [1, 1.05, 1]
+              }}
+              transition={{
+                duration: 2.5,
+                repeat: Infinity
+              }}
+              whileHover={{
+                scale: 1.15
+              }}
+              whileTap={{
+                scale: 0.95
+              }}
+            >
+              <Play className="w-5 h-5" />
+              {user ? 'Mulai Petualangan' : 'Mulai Petualangan'}
+            </motion.button>
+          )}
 
           {/* Info tambahan jika belum login */}
           {!loading && !user && (
