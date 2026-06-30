@@ -308,226 +308,477 @@ const LoginRegister = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 transition-all">
-        {/* Header */}
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
-          {isLogin ? 'Masuk' : 'Daftar Akun'}
-        </h2>
-
-        {/* Error General */}
-        {errors.general && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {errors.general}
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500">
+      {/* Background Laut dengan Animasi */}
+      <div className="absolute inset-0">
+        {/* Dasar laut */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-yellow-900/30 to-transparent"></div>
+        
+        {/* Rumput laut bergoyang */}
+        {[...Array(15)].map((_, i) => (
+          <div
+            key={`seaweed-${i}`}
+            className="absolute bottom-0 w-1 bg-green-800/40 rounded-full origin-bottom animate-sway"
+            style={{
+              height: Math.random() * 60 + 30 + 'px',
+              left: Math.random() * 100 + '%',
+              animationDelay: Math.random() * 2 + 's',
+              animationDuration: Math.random() * 2 + 1 + 's'
+            }}
+          />
+        ))}
+        
+        {/* Ikan-ikan berenang */}
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={`fish-${i}`}
+            className="absolute text-white/70 animate-swim"
+            style={{
+              fontSize: Math.random() * 20 + 10 + 'px',
+              top: Math.random() * 70 + 10 + '%',
+              left: '-10%',
+              animationDelay: Math.random() * 10 + 's',
+              animationDuration: Math.random() * 8 + 6 + 's'
+            }}
+          >
+            🐟
           </div>
-        )}
-
-        {/* Tab Login / Register */}
-        <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
-          <button
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
-              isLogin ? 'bg-white text-indigo-600 shadow' : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => handleTabChange(true)}
+        ))}
+        
+        {/* Ikan besar */}
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={`big-fish-${i}`}
+            className="absolute text-white/60 animate-swim-slow"
+            style={{
+              fontSize: Math.random() * 30 + 25 + 'px',
+              top: Math.random() * 60 + 20 + '%',
+              left: '-15%',
+              animationDelay: Math.random() * 15 + 's',
+              animationDuration: Math.random() * 12 + 10 + 's'
+            }}
           >
-            Login
-          </button>
-          <button
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
-              !isLogin ? 'bg-white text-indigo-600 shadow' : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => handleTabChange(false)}
+            🐠
+          </div>
+        ))}
+        
+        {/* Kura-kura */}
+        {[...Array(3)].map((_, i) => (
+          <div
+            key={`turtle-${i}`}
+            className="absolute text-green-400/50 animate-swim-turtle"
+            style={{
+              fontSize: Math.random() * 25 + 20 + 'px',
+              top: Math.random() * 50 + 20 + '%',
+              left: '-20%',
+              animationDelay: Math.random() * 20 + 's',
+              animationDuration: Math.random() * 15 + 12 + 's'
+            }}
           >
-            Register
-          </button>
-        </div>
+            🐢
+          </div>
+        ))}
+        
+        {/* Penyu */}
+        {[...Array(2)].map((_, i) => (
+          <div
+            key={`turtle2-${i}`}
+            className="absolute text-green-300/40 animate-swim-turtle2"
+            style={{
+              fontSize: Math.random() * 30 + 25 + 'px',
+              top: Math.random() * 40 + 30 + '%',
+              left: '-25%',
+              animationDelay: Math.random() * 25 + 's',
+              animationDuration: Math.random() * 20 + 15 + 's'
+            }}
+          >
+            🐢
+          </div>
+        ))}
+        
+        {/* Gurita */}
+        {[...Array(2)].map((_, i) => (
+          <div
+            key={`octopus-${i}`}
+            className="absolute text-purple-400/30 animate-swim-octopus"
+            style={{
+              fontSize: Math.random() * 25 + 20 + 'px',
+              top: Math.random() * 60 + 20 + '%',
+              left: '-30%',
+              animationDelay: Math.random() * 30 + 's',
+              animationDuration: Math.random() * 18 + 14 + 's'
+            }}
+          >
+            🐙
+          </div>
+        ))}
+        
+        {/* Bintang laut */}
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={`starfish-${i}`}
+            className="absolute text-yellow-400/30"
+            style={{
+              fontSize: Math.random() * 15 + 10 + 'px',
+              bottom: Math.random() * 20 + 10 + '%',
+              left: Math.random() * 100 + '%',
+              animation: 'pulse 2s ease-in-out infinite',
+              animationDelay: Math.random() * 2 + 's'
+            }}
+          >
+            ⭐
+          </div>
+        ))}
+        
+        {/* Gelembung air */}
+        {[...Array(30)].map((_, i) => (
+          <div
+            key={`bubble-${i}`}
+            className="absolute rounded-full bg-white/10 animate-float"
+            style={{
+              width: Math.random() * 15 + 3 + 'px',
+              height: Math.random() * 15 + 3 + 'px',
+              left: Math.random() * 100 + '%',
+              top: Math.random() * 100 + '%',
+              animationDelay: Math.random() * 8 + 's',
+              animationDuration: Math.random() * 5 + 3 + 's'
+            }}
+          />
+        ))}
+        
+        {/* Sinar matahari di air */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent"></div>
+      </div>
 
-        {/* Pilihan Peran (hanya untuk Register) */}
-        {!isLogin && (
-          <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
+      {/* Konten Utama dengan Liquid Glass */}
+      <div className="relative z-10 w-full max-w-md">
+        <div className="backdrop-blur-xl bg-white/20 rounded-3xl shadow-2xl p-8 border border-white/30 animate-scale-in">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-400/80 to-cyan-400/80 rounded-2xl mb-3 backdrop-blur-sm border border-white/30 shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h2 className="text-3xl font-bold text-white drop-shadow-lg">
+              {isLogin ? 'Selamat Datang' : 'Daftar Akun'}
+            </h2>
+            <p className="text-white/70 text-sm mt-1">
+              {isLogin ? 'Masuk untuk melanjutkan petualangan' : 'Mulai petualanganmu di sungai'}
+            </p>
+          </div>
+
+          {/* Error General */}
+          {errors.general && (
+            <div className="mb-4 p-3 backdrop-blur-sm bg-red-500/20 border border-red-400/30 rounded-2xl text-white/90 text-sm">
+              {errors.general}
+            </div>
+          )}
+
+          {/* Tab Login / Register dengan Liquid Glass */}
+          <div className="flex rounded-2xl backdrop-blur-sm bg-white/10 p-1 mb-6 border border-white/20">
             <button
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
-                role === 'teacher' ? 'bg-white text-indigo-600 shadow' : 'text-gray-500 hover:text-gray-700'
+              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition ${
+                isLogin 
+                  ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white shadow-lg border border-white/30' 
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
               }`}
-              onClick={() => handleRoleChange('teacher')}
+              onClick={() => handleTabChange(true)}
             >
-              Teacher
+              Login
             </button>
             <button
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
-                role === 'student' ? 'bg-white text-indigo-600 shadow' : 'text-gray-500 hover:text-gray-700'
+              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition ${
+                !isLogin 
+                  ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white shadow-lg border border-white/30' 
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
               }`}
-              onClick={() => handleRoleChange('student')}
+              onClick={() => handleTabChange(false)}
             >
-              Student
+              Register
             </button>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Field Nama (hanya untuk Register) */}
+          {/* Pilihan Peran (hanya untuk Register) dengan Liquid Glass */}
           {!isLogin && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nama Lengkap <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition ${
-                  errors.name ? 'border-red-500' : 'border-gray-300'
+            <div className="flex rounded-2xl backdrop-blur-sm bg-white/10 p-1 mb-6 border border-white/20">
+              <button
+                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition ${
+                  role === 'teacher' 
+                    ? 'bg-gradient-to-r from-purple-500/80 to-pink-500/80 text-white shadow-lg border border-white/30' 
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
                 }`}
-                placeholder="Masukkan nama lengkap"
-              />
-              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                onClick={() => handleRoleChange('teacher')}
+              >
+                👨‍🏫 Teacher
+              </button>
+              <button
+                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition ${
+                  role === 'student' 
+                    ? 'bg-gradient-to-r from-green-500/80 to-emerald-500/80 text-white shadow-lg border border-white/30' 
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+                onClick={() => handleRoleChange('student')}
+              >
+                🎓 Student
+              </button>
             </div>
           )}
 
-          {/* Field NIP/NIPK (hanya untuk Register Teacher) */}
-          {!isLogin && role === 'teacher' && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Field Nama (hanya untuk Register) */}
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">
+                  Nama Lengkap <span className="text-red-300">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
+                    errors.name ? 'border-red-400/50' : 'border-white/30'
+                  }`}
+                  placeholder="Masukkan nama lengkap"
+                />
+                {errors.name && <p className="text-red-300 text-xs mt-1">{errors.name}</p>}
+              </div>
+            )}
+
+            {/* Field NIP/NIPK (hanya untuk Register Teacher) */}
+            {!isLogin && role === 'teacher' && (
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">
+                  NIP / NIPK <span className="text-red-300">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="nip"
+                  value={formData.nip}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
+                    errors.nip ? 'border-red-400/50' : 'border-white/30'
+                  }`}
+                  placeholder="Masukkan NIP/NIPK (angka)"
+                />
+                {errors.nip && <p className="text-red-300 text-xs mt-1">{errors.nip}</p>}
+              </div>
+            )}
+
+            {/* Field NIS/NISN/NIM (hanya untuk Register Student) */}
+            {!isLogin && role === 'student' && (
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">
+                  NIS / NISN / NIM <span className="text-red-300">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="nis"
+                  value={formData.nis}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
+                    errors.nis ? 'border-red-400/50' : 'border-white/30'
+                  }`}
+                  placeholder="Masukkan NIS/NISN/NIM (angka)"
+                />
+                {errors.nis && <p className="text-red-300 text-xs mt-1">{errors.nis}</p>}
+              </div>
+            )}
+
+            {/* Email (selalu tampil) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                NIP / NIPK <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-white/90 mb-1.5">
+                Email <span className="text-red-300">*</span>
               </label>
               <input
-                type="text"
-                name="nip"
-                value={formData.nip}
+                type="email"
+                name="email"
+                value={formData.email}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition ${
-                  errors.nip ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
+                  errors.email ? 'border-red-400/50' : 'border-white/30'
                 }`}
-                placeholder="Masukkan NIP/NIPK (angka)"
+                placeholder="email@contoh.com"
               />
-              {errors.nip && <p className="text-red-500 text-xs mt-1">{errors.nip}</p>}
+              {errors.email && <p className="text-red-300 text-xs mt-1">{errors.email}</p>}
             </div>
-          )}
 
-          {/* Field NIS/NISN/NIM (hanya untuk Register Student) */}
-          {!isLogin && role === 'student' && (
+            {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                NIS / NISN / NIM <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="nis"
-                value={formData.nis}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition ${
-                  errors.nis ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Masukkan NIS/NISN/NIM (angka)"
-              />
-              {errors.nis && <p className="text-red-500 text-xs mt-1">{errors.nis}</p>}
-            </div>
-          )}
-
-          {/* Email (selalu tampil) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition ${
-                errors.email ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="email@contoh.com"
-            />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition ${
-                errors.password ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Minimal 6 karakter"
-            />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-          </div>
-
-          {/* Confirm Password (hanya untuk Register) */}
-          {!isLogin && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Konfirmasi Password <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-white/90 mb-1.5">
+                Password <span className="text-red-300">*</span>
               </label>
               <input
                 type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
+                name="password"
+                value={formData.password}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition ${
-                  errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
+                  errors.password ? 'border-red-400/50' : 'border-white/30'
                 }`}
-                placeholder="Ulangi password"
+                placeholder="Minimal 6 karakter"
               />
-              {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
+              {errors.password && <p className="text-red-300 text-xs mt-1">{errors.password}</p>}
             </div>
-          )}
 
-          {/* Catatan tentang Room ID (hanya untuk Register) */}
-          {!isLogin && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-              <p className="flex items-center">
-                <span className="mr-2">ℹ️</span>
-                Room ID akan diberikan oleh guru setelah Anda bergabung ke kelas.
-              </p>
-              {role === 'student' && (
-                <p className="flex items-center mt-1">
-                  <span className="mr-2">🎮</span>
-                  Data skor game akan otomatis dibuat untuk Anda.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Tombol Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Memproses...
-              </span>
-            ) : (
-              isLogin ? 'Login' : 'Daftar'
+            {/* Confirm Password (hanya untuk Register) */}
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1.5">
+                  Konfirmasi Password <span className="text-red-300">*</span>
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
+                    errors.confirmPassword ? 'border-red-400/50' : 'border-white/30'
+                  }`}
+                  placeholder="Ulangi password"
+                />
+                {errors.confirmPassword && <p className="text-red-300 text-xs mt-1">{errors.confirmPassword}</p>}
+              </div>
             )}
-          </button>
-        </form>
 
-        {/* Footer / Link tambahan */}
-        <p className="text-center text-sm text-gray-500 mt-6">
-          {isLogin ? "Belum punya akun? " : "Sudah punya akun? "}
-          <button
-            className="text-indigo-600 hover:underline font-medium"
-            onClick={() => handleTabChange(!isLogin)}
-          >
-            {isLogin ? 'Daftar di sini' : 'Login di sini'}
-          </button>
-        </p>
+            {/* Catatan dengan Liquid Glass */}
+            {/* {!isLogin && (
+              <div className="backdrop-blur-sm bg-blue-500/20 border border-blue-400/30 rounded-2xl p-4 text-sm text-white/90">
+                <p className="flex items-center">
+                  <span className="mr-2">💡</span>
+                  Room ID akan diberikan oleh guru setelah Anda bergabung ke kelas.
+                </p>
+                {role === 'student' && (
+                  <p className="flex items-center mt-2">
+                    <span className="mr-2">🎮</span>
+                    Data skor game akan otomatis dibuat untuk Anda.
+                  </p>
+                )}
+              </div>
+            )} */}
+
+            {/* Tombol Submit dengan Liquid Glass */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-3.5 rounded-2xl transition duration-200 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed border border-white/30"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Memproses...
+                </span>
+              ) : (
+                isLogin ? 'Masuk' : 'Daftar'
+              )}
+            </button>
+          </form>
+
+          {/* Footer / Link tambahan dengan Liquid Glass */}
+          <div className="text-center text-sm text-white/70 mt-6">
+            {isLogin ? "Belum punya akun? " : "Sudah punya akun? "}
+            <button
+              className="text-white font-medium hover:text-cyan-200 transition-colors underline-offset-2 hover:underline"
+              onClick={() => handleTabChange(!isLogin)}
+            >
+              {isLogin ? 'Daftar di sini' : 'Login di sini'}
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* CSS Animations */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
+          50% { transform: translateY(-30px) scale(1.2); opacity: 0.2; }
+        }
+        
+        @keyframes swim {
+          0% { transform: translateX(0) scaleX(1); }
+          50% { transform: translateX(calc(100vw)) scaleX(1); }
+          100% { transform: translateX(calc(200vw)) scaleX(1); }
+        }
+        
+        @keyframes swim-slow {
+          0% { transform: translateX(0) scaleX(1); }
+          50% { transform: translateX(calc(100vw)) scaleX(1); }
+          100% { transform: translateX(calc(200vw)) scaleX(1); }
+        }
+        
+        @keyframes swim-turtle {
+          0% { transform: translateX(0) scaleX(1) translateY(0); }
+          25% { transform: translateX(calc(50vw)) scaleX(1) translateY(-20px); }
+          50% { transform: translateX(calc(100vw)) scaleX(1) translateY(0); }
+          75% { transform: translateX(calc(150vw)) scaleX(1) translateY(-30px); }
+          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(0); }
+        }
+        
+        @keyframes swim-turtle2 {
+          0% { transform: translateX(0) scaleX(1) translateY(0); }
+          33% { transform: translateX(calc(70vw)) scaleX(1) translateY(-25px); }
+          66% { transform: translateX(calc(140vw)) scaleX(1) translateY(0); }
+          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(-20px); }
+        }
+        
+        @keyframes swim-octopus {
+          0% { transform: translateX(0) scaleX(1) translateY(0); }
+          30% { transform: translateX(calc(60vw)) scaleX(1) translateY(-15px); }
+          60% { transform: translateX(calc(120vw)) scaleX(1) translateY(15px); }
+          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(0); }
+        }
+        
+        @keyframes sway {
+          0%, 100% { transform: rotate(-5deg); }
+          50% { transform: rotate(5deg); }
+        }
+        
+        @keyframes scale-in {
+          0% { transform: scale(0.9); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.3; }
+          50% { transform: scale(1.2); opacity: 0.5; }
+        }
+        
+        .animate-float {
+          animation: float ease-in-out infinite;
+        }
+        
+        .animate-swim {
+          animation: swim linear infinite;
+        }
+        
+        .animate-swim-slow {
+          animation: swim-slow linear infinite;
+        }
+        
+        .animate-swim-turtle {
+          animation: swim-turtle ease-in-out infinite;
+        }
+        
+        .animate-swim-turtle2 {
+          animation: swim-turtle2 ease-in-out infinite;
+        }
+        
+        .animate-swim-octopus {
+          animation: swim-octopus ease-in-out infinite;
+        }
+        
+        .animate-sway {
+          animation: sway ease-in-out infinite;
+        }
+        
+        .animate-scale-in {
+          animation: scale-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
