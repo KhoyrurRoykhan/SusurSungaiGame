@@ -20,7 +20,16 @@ import {
   Save,
   RefreshCw,
   X,
-  ChevronRight
+  ChevronRight,
+  BookOpen,
+  GraduationCap,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
+  CheckCircle,
+  Code,
+  Map as MapIcon,
+  Navigation,
+  Info
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import L from 'leaflet';
@@ -351,6 +360,225 @@ const getMarkerIcon = (kategori) => {
   });
 };
 
+// Komponen Onboarding/Welcome Popup
+const OnboardingPopup = ({ onClose }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  
+  const steps = [
+    {
+      icon: <BookOpen className="text-teal-400" size={32} />,
+      title: "Selamat Datang di Tutorial! 🐢",
+      description: "Halo! Selamat datang di mode tutorial. Di sini kamu akan belajar cara menavigasi kura-kura menyusuri sungai menggunakan perintah-perintah sederhana.",
+      tips: [
+        "Mode ini GRATIS dan TANPA SKOR",
+        "Belajar tanpa tekanan",
+        "Cocok untuk pemula"
+      ]
+    },
+    {
+      icon: <Code className="text-blue-400" size={32} />,
+      title: "Perintah Dasar",
+      description: "Kura-kura bisa digerakkan dengan perintah-perintah berikut. Coba tulis di terminal!",
+      tips: [
+        "forward / fd [meter] - Maju",
+        "backward / bk [meter] - Mundur",
+        "left / lt [derajat] - Belok kiri",
+        "right / rt [derajat] - Belok kanan"
+      ]
+    },
+    {
+      icon: <MapIcon className="text-green-400" size={32} />,
+      title: "Peta & Navigasi",
+      description: "Lihat peta dengan batas sungai (garis biru putus-putus). Jaga kura-kura tetap di dalam sungai!",
+      tips: [
+        "🏁 START - Titik awal",
+        "🚩 FINISH - Titik tujuan",
+        "⚠️ Keluar sungai = tabrakan",
+        "📊 Skor = 100 - (tabrakan × 5)"
+      ]
+    },
+    {
+      icon: <Navigation className="text-amber-400" size={32} />,
+      title: "Tips & Trik",
+      description: "Beberapa tips untuk membantu perjalananmu mencapai FINISH dengan skor terbaik!",
+      tips: [
+        "Gunakan perintah kecil dulu (50m)",
+        "Belok perlahan (30°-45°)",
+        "Gunakan # untuk komentar",
+        "Enter = jalankan, Shift+Enter = baris baru"
+      ]
+    }
+  ];
+
+  const current = steps[currentStep];
+  const isLast = currentStep === steps.length - 1;
+
+  const nextStep = () => {
+    if (isLast) {
+      onClose();
+    } else {
+      setCurrentStep(prev => prev + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  // Keyboard support
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Enter') {
+        e.preventDefault();
+        nextStep();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevStep();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStep]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/70 backdrop-blur-md"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl max-w-lg w-full mx-4 shadow-2xl border border-white/20 overflow-hidden"
+        initial={{ scale: 0.8, y: 30 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.8, y: 30 }}
+        transition={{ type: "spring", damping: 25 }}
+      >
+        {/* Header dengan progress */}
+        <div className="px-6 pt-6 pb-2">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs text-white/50 font-medium">
+              Langkah {currentStep + 1} dari {steps.length}
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="flex gap-1 mb-4">
+            {steps.map((_, idx) => (
+              <div
+                key={idx}
+                className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                  idx === currentStep 
+                    ? 'bg-gradient-to-r from-teal-400 to-cyan-400' 
+                    : idx < currentStep 
+                    ? 'bg-teal-400/50' 
+                    : 'bg-white/20'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-4">
+          <div className="flex flex-col items-center text-center">
+            <motion.div
+              key={currentStep}
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", damping: 20 }}
+              className="w-20 h-20 rounded-full bg-white/10 border border-white/20 flex items-center justify-center mb-4"
+            >
+              {current.icon}
+            </motion.div>
+
+            <motion.h2
+              key={`title-${currentStep}`}
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="text-2xl font-bold text-white mb-2"
+            >
+              {current.title}
+            </motion.h2>
+
+            <motion.p
+              key={`desc-${currentStep}`}
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="text-white/70 text-sm mb-4"
+            >
+              {current.description}
+            </motion.p>
+
+            <motion.div
+              key={`tips-${currentStep}`}
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="w-full bg-white/5 rounded-xl p-4 border border-white/10"
+            >
+              <div className="flex items-center gap-2 mb-2 text-white/60 text-xs font-medium">
+                <Info size={14} />
+                <span>Tips & Informasi</span>
+              </div>
+              <div className="space-y-1.5 text-left">
+                {current.tips.map((tip, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-sm text-white/80">
+                    <CheckCircle size={14} className="text-teal-400 mt-0.5 flex-shrink-0" />
+                    <span>{tip}</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* Footer dengan navigasi */}
+        <div className="px-6 pb-6 pt-2 flex items-center justify-between border-t border-white/10">
+          <button
+            onClick={prevStep}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-1 ${
+              currentStep > 0
+                ? 'text-white/80 hover:bg-white/10'
+                : 'text-white/20 cursor-not-allowed'
+            }`}
+            disabled={currentStep === 0}
+          >
+            <ChevronLeft size={16} />
+            Kembali
+          </button>
+
+          <div className="flex items-center gap-2 text-white/40 text-xs">
+            <span>Tekan <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-[10px]">→</kbd> atau <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-[10px]">Enter</kbd> untuk lanjut</span>
+          </div>
+
+          <button
+            onClick={nextStep}
+            className="px-5 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white rounded-xl text-sm font-bold transition flex items-center gap-1 shadow-lg"
+          >
+            {isLast ? (
+              <>Mulai! <CheckCircle size={16} /></>
+            ) : (
+              <>Lanjut <ChevronRightIcon size={16} /></>
+            )}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 const Tutorial = () => {
   const [alertMsg, setAlertMsg] = useState(null);
   const navigate = useNavigate();
@@ -359,6 +587,9 @@ const Tutorial = () => {
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
   const textareaRef = useRef(null);
+  
+  // State untuk Onboarding
+  const [showOnboarding, setShowOnboarding] = useState(true);
   
   // Turtle State
   const [turtlePos, setTurtlePos] = useState(startPoint);
@@ -436,12 +667,14 @@ const Tutorial = () => {
     }
   }, []);
 
-  // Fokus textarea
+  // Fokus textarea setelah onboarding selesai
   useEffect(() => {
-    if (!isExecuting && textareaRef.current && !isFinished) {
-      textareaRef.current.focus();
+    if (!showOnboarding && !isExecuting && textareaRef.current && !isFinished) {
+      setTimeout(() => {
+        textareaRef.current.focus();
+      }, 300);
     }
-  }, [isExecuting, isFinished]);
+  }, [showOnboarding, isExecuting, isFinished]);
 
   // Fungsi untuk menghitung skor
   const calculateScore = (collisions) => {
@@ -817,9 +1050,15 @@ const Tutorial = () => {
     }
   }, [turtlePos]);
 
-
   return (
     <div className="h-screen flex flex-col bg-gray-900">
+      {/* Onboarding Popup */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <OnboardingPopup onClose={() => setShowOnboarding(false)} />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -863,10 +1102,17 @@ const Tutorial = () => {
           <div className="bg-amber-900/50 px-3 py-1 rounded-lg border border-amber-600">
             <span className="text-amber-300 text-xs">🔓 Gratis - Tanpa Skor</span>
           </div>
+          <button
+            onClick={() => setShowOnboarding(true)}
+            className="bg-teal-600/50 hover:bg-teal-600 px-3 py-1 rounded-lg border border-teal-500 text-teal-300 text-xs flex items-center gap-1 transition"
+          >
+            <Info size={14} />
+            Panduan
+          </button>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content - Sama seperti sebelumnya */}
       <div className="flex-1 flex overflow-hidden">
         {/* Map */}
         <div className="flex-1 relative">
@@ -1119,7 +1365,7 @@ const Tutorial = () => {
           </div>
         </div>
 
-        {/* Control Panel */}
+        {/* Control Panel - Sama seperti sebelumnya */}
         <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
           {/* Command Input */}
           <div className="p-4 border-b border-gray-700">

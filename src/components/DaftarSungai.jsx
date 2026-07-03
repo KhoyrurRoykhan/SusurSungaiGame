@@ -19,7 +19,9 @@ import {
   X,
   Check,
   Star,
-  Route
+  Route,
+  BookOpen,
+  GraduationCap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -33,9 +35,21 @@ import GambarSungaiAlalak from "./assets/sungaialalak.jpg";
 import GambarSungaiAwang from "./assets/sungaiawang.jpg";
 import GambarSungaiMartapura from "./assets/sungaimartapura.jpg";
 import GambarSungaiPelambuan from "./assets/sungaipelambuan.jpg";
+import GambarTutorial from "./assets/sungaimartapura.jpg"; // Tambahkan gambar tutorial
 
 // Data dasar sungai - PATH UNTUK NAVIGASI ADA DI SINI
 const baseLevelSungai = [
+  {
+    id: 0,
+    nama: "Tutorial",
+    lokasi: "Belajar Navigasi Sungai",
+    deskripsi: "Pelajari dasar-dasar navigasi sungai dengan panduan interaktif. Cocok untuk pemula!",
+    gambar: GambarTutorial,
+    tingkatKesulitan: "Pemula",
+    navigatePath: "/game/tutorial",
+    isTutorial: true, // Flag untuk identifikasi tutorial
+    dbKey: "tutorial"
+  },
   {
     id: 1,
     nama: "Sungai Barito",
@@ -159,7 +173,16 @@ const baseLevelSungai = [
 ];
 
 // Difficulty Badge
-const DifficultyBadge = ({ level }) => {
+const DifficultyBadge = ({ level, isTutorial }) => {
+  // Jika tutorial, tampilkan badge khusus
+  if (isTutorial) {
+    return (
+      <span className="px-2 py-1 rounded-xl text-xs font-bold backdrop-blur-sm bg-gradient-to-r from-teal-500/50 to-cyan-500/50 text-white border border-teal-400/30 flex items-center gap-1">
+        <GraduationCap size={12} /> Pemula
+      </span>
+    );
+  }
+  
   const colors = {
     "Mudah": "bg-green-500/30 text-white border border-green-400/30",
     "Sedang": "bg-yellow-500/30 text-white border border-yellow-400/30",
@@ -182,7 +205,148 @@ const formatTime = (seconds) => {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 };
 
-// Level Card Component
+// Level Card Component - Versi Tutorial Khusus
+const TutorialCard = ({ level, index, onPlay }) => {
+  const navigate = useNavigate();
+  
+  const handlePlay = (e) => {
+    e.stopPropagation();
+    console.log("🎮 Memulai Tutorial:", level.nama);
+    
+    if (onPlay) {
+      onPlay(level);
+    }
+    
+    navigate(level.navigatePath, { 
+      state: { 
+        levelId: level.id,
+        levelName: level.nama,
+        isTutorial: true
+      } 
+    });
+  };
+  
+  const handleCardClick = () => {
+    console.log("🖱️ Tutorial Card diklik:", level.nama);
+    
+    if (onPlay) {
+      onPlay(level);
+    }
+    
+    navigate(level.navigatePath, { 
+      state: { 
+        levelId: level.id,
+        levelName: level.nama,
+        isTutorial: true
+      } 
+    });
+  };
+  
+  return (
+    <motion.div
+      className="group relative rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 hover:shadow-3xl hover:-translate-y-2 cursor-pointer border-2 border-teal-400/50"
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.5 }}
+      onClick={handleCardClick}
+    >
+      {/* Background Gradient Khusus Tutorial */}
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-500/20 via-cyan-500/20 to-blue-500/20 z-0"></div>
+      
+      {/* Gambar Container */}
+      <div className="relative h-48 overflow-hidden">
+        <img 
+          src={level.gambar} 
+          alt={level.nama}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+        
+        {/* Overlay dengan efek glass khusus tutorial */}
+        <div className="absolute inset-0 bg-gradient-to-t from-teal-900/80 via-teal-800/40 to-transparent" />
+        
+        {/* Level Number dengan efek glass khusus */}
+        <div className="absolute top-3 left-3 flex gap-2">
+          <div className="w-10 h-10 backdrop-blur-xl bg-gradient-to-br from-teal-500/40 to-cyan-500/40 rounded-2xl flex items-center justify-center text-white font-bold border border-teal-400/50 shadow-lg">
+            <BookOpen size={18} />
+          </div>
+        </div>
+        
+        {/* Tutorial Badge */}
+        <div className="absolute top-3 right-3 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 backdrop-blur-xl bg-gradient-to-r from-teal-500/60 to-cyan-500/60 text-white border border-teal-400/30">
+          <GraduationCap size={14} /> Tutorial
+        </div>
+
+        {/* Status Badge */}
+        <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 backdrop-blur-xl bg-green-500/60 text-white border border-green-400/30">
+          <Unlock size={12} /> Gratis
+        </div>
+      </div>
+
+      {/* Content dengan efek glass khusus tutorial */}
+      <div className="p-4 backdrop-blur-xl bg-gradient-to-br from-teal-500/20 to-cyan-500/20 border-t border-teal-400/30 relative z-10">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="text-lg font-bold text-white drop-shadow-lg group-hover:text-teal-200 transition-colors flex items-center gap-2">
+            <BookOpen size={16} className="text-teal-300" />
+            {level.nama}
+          </h3>
+          <DifficultyBadge level={level.tingkatKesulitan} isTutorial={true} />
+        </div>
+        
+        <div className="flex items-center gap-1 text-white/70 text-xs mb-2">
+          <MapPin size={12} />
+          <span>{level.lokasi}</span>
+        </div>
+
+        <p className="text-white/80 text-xs line-clamp-2 mb-3 h-8">
+          {level.deskripsi}
+        </p>
+
+        {/* Info Khusus Tutorial - Tanpa Skor */}
+        <div className="grid grid-cols-1 gap-2 mb-3">
+          <div className="flex items-center gap-2 p-2 rounded-xl backdrop-blur-sm bg-gradient-to-r from-teal-500/20 to-cyan-500/20 border border-teal-400/30">
+            <BookOpen size={16} className="text-teal-300 flex-shrink-0" />
+            <div>
+              <p className="text-[10px] text-teal-200">Mode Belajar</p>
+              <p className="text-xs text-teal-100 font-medium">Belajar navigasi tanpa tekanan skor</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Tambahan Tutorial */}
+        <div className="mb-3 px-3 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/30 rounded-xl backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <Trophy size={14} className="text-amber-300 flex-shrink-0" />
+            <div>
+              <p className="text-[10px] text-amber-200">💡 Tutorial</p>
+              <p className="text-xs text-amber-100">Pelajari perintah dasar dan navigasi sungai</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action dengan efek glass khusus */}
+        <div className="flex items-center justify-end pt-2 border-t border-teal-400/20">
+          <motion.button
+            onClick={handlePlay}
+            className="px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors backdrop-blur-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white border border-teal-400/30 hover:from-teal-600 hover:to-cyan-600 shadow-xl"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            type="button"
+          >
+            <BookOpen size={14} />
+            Mulai Belajar
+            <Play size={14} />
+          </motion.button>
+        </div>
+      </div>
+      
+      {/* Decorative border glow */}
+      <div className="absolute inset-0 border-2 border-teal-400/30 rounded-3xl pointer-events-none"></div>
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-teal-400/20 to-cyan-400/20 rounded-3xl blur-xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+    </motion.div>
+  );
+};
+
+// Level Card Component - Versi Normal (dengan Skor)
 const LevelCard = ({ level, index, onPlay, gameData }) => {
   const navigate = useNavigate();
   const isLocked = level.status === "terkunci";
@@ -203,7 +367,6 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
     
     console.log("🎮 Tombol diklik untuk:", level.nama);
     console.log("📌 Navigasi ke:", navigationPath);
-    console.log("🗺️ Database path (jalur gambar):", dbPath);
     
     if (!isLocked && navigationPath) {
       if (onPlay) {
@@ -304,7 +467,7 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
           <h3 className="text-lg font-bold text-white drop-shadow-lg group-hover:text-cyan-200 transition-colors">
             {level.nama}
           </h3>
-          <DifficultyBadge level={level.tingkatKesulitan} />
+          <DifficultyBadge level={level.tingkatKesulitan} isTutorial={false} />
         </div>
         
         <div className="flex items-center gap-1 text-white/70 text-xs mb-2">
@@ -553,6 +716,18 @@ const DaftarSungai = () => {
         setGameScores(scoresData);
         
         const updatedLevels = baseLevelSungai.map(level => {
+          // Tutorial tidak perlu mengambil data skor
+          if (level.isTutorial) {
+            return {
+              ...level,
+              skorTertinggi: 0,
+              waktuTerbaik: null,
+              dbPath: null,
+              pernahDimainkan: false,
+              status: "terbuka"
+            };
+          }
+          
           const dbData = scoresData[level.dbKey] || {};
           const skor = dbData.skor || 0;
           const waktu = dbData.time || null;
@@ -581,12 +756,12 @@ const DaftarSungai = () => {
 
   // Hitung progress berdasarkan database
   const calculateProgress = () => {
-    const totalSungai = levelSungai.length; // 12 sungai
+    const totalSungai = levelSungai.filter(level => !level.isTutorial).length; // Eksklusi tutorial
     
     // Hitung berapa sungai yang sudah selesai (skor > 0 atau waktu > 0)
     const sungaiSelesai = levelSungai.filter(level => {
+      if (level.isTutorial) return false; // Tutorial tidak dihitung
       const dbData = gameScores[level.dbKey];
-      // Sungai dianggap selesai jika ada skor > 0 atau waktu > 0
       return dbData && (dbData.skor > 0 || dbData.time !== null);
     }).length;
     
@@ -672,17 +847,22 @@ const DaftarSungai = () => {
   const progress = calculateProgress();
   
   const stats = {
-    total: levelSungai.length,
-    selesai: levelSungai.filter(l => l.waktuTerbaik !== null || l.skorTertinggi > 0).length,
-    terbuka: levelSungai.filter(l => l.status === "terbuka").length,
-    totalSkor: levelSungai.reduce((acc, l) => acc + (l.skorTertinggi || 0), 0),
+    total: levelSungai.filter(level => !level.isTutorial).length,
+    selesai: levelSungai.filter(level => !level.isTutorial && (level.waktuTerbaik !== null || level.skorTertinggi > 0)).length,
+    terbuka: levelSungai.filter(level => !level.isTutorial && level.status === "terbuka").length,
+    totalSkor: levelSungai.reduce((acc, level) => {
+      if (level.isTutorial) return acc;
+      return acc + (level.skorTertinggi || 0);
+    }, 0),
     progress: progress
   };
 
   const handleSelectLevel = (level) => {
     setSelectedLevel(level);
     console.log("Memulai level:", level.nama);
-    console.log("Data game:", gameScores[level.dbKey]);
+    if (!level.isTutorial) {
+      console.log("Data game:", gameScores[level.dbKey]);
+    }
   };
 
   if (loading || loadingScores) {
@@ -717,12 +897,10 @@ const DaftarSungai = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500">
-      {/* Background Laut dengan Animasi */}
+      {/* Background Laut dengan Animasi - Sama seperti sebelumnya */}
       <div className="absolute inset-0">
-        {/* Dasar laut */}
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-yellow-900/30 to-transparent"></div>
         
-        {/* Rumput laut bergoyang */}
         {[...Array(15)].map((_, i) => (
           <div
             key={`seaweed-${i}`}
@@ -736,7 +914,6 @@ const DaftarSungai = () => {
           />
         ))}
         
-        {/* Ikan-ikan berenang */}
         {[...Array(12)].map((_, i) => (
           <div
             key={`fish-${i}`}
@@ -753,7 +930,6 @@ const DaftarSungai = () => {
           </div>
         ))}
         
-        {/* Ikan besar */}
         {[...Array(4)].map((_, i) => (
           <div
             key={`big-fish-${i}`}
@@ -770,7 +946,6 @@ const DaftarSungai = () => {
           </div>
         ))}
         
-        {/* Kura-kura */}
         {[...Array(3)].map((_, i) => (
           <div
             key={`turtle-${i}`}
@@ -787,7 +962,6 @@ const DaftarSungai = () => {
           </div>
         ))}
         
-        {/* Penyu */}
         {[...Array(2)].map((_, i) => (
           <div
             key={`turtle2-${i}`}
@@ -804,7 +978,6 @@ const DaftarSungai = () => {
           </div>
         ))}
         
-        {/* Gurita */}
         {[...Array(2)].map((_, i) => (
           <div
             key={`octopus-${i}`}
@@ -821,7 +994,6 @@ const DaftarSungai = () => {
           </div>
         ))}
         
-        {/* Bintang laut */}
         {[...Array(5)].map((_, i) => (
           <div
             key={`starfish-${i}`}
@@ -838,7 +1010,6 @@ const DaftarSungai = () => {
           </div>
         ))}
         
-        {/* Gelembung air */}
         {[...Array(30)].map((_, i) => (
           <div
             key={`bubble-${i}`}
@@ -854,13 +1025,12 @@ const DaftarSungai = () => {
           />
         ))}
         
-        {/* Sinar matahari di air */}
         <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent"></div>
       </div>
 
       {/* Konten Utama dengan efek Liquid Glass */}
       <div className="relative z-10">
-        {/* Header dengan Liquid Glass */}
+        {/* Header dengan Liquid Glass - Sama seperti sebelumnya */}
         <header className="backdrop-blur-xl bg-white/20 shadow-2xl sticky top-0 z-20 border-b border-white/30">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -927,7 +1097,7 @@ const DaftarSungai = () => {
           </div>
         </header>
 
-        {/* Progress Bar dengan Liquid Glass - DIPERBAIKI DENGAN PROGRESS DARI DATABASE */}
+        {/* Progress Bar dengan Liquid Glass - DIPERBAIKI (Tutorial tidak dihitung) */}
         <div className="backdrop-blur-xl bg-white/10 border-b border-white/20">
           <div className="max-w-7xl mx-auto px-4 py-3">
             <div className="flex items-center justify-between mb-2">
@@ -950,7 +1120,6 @@ const DaftarSungai = () => {
                 style={{ width: `${stats.progress.progress}%` }}
               />
             </div>
-            {/* Tambahan info detail */}
             <div className="flex justify-between mt-1">
               <span className="text-[10px] text-white/40">
                 Target: {stats.progress.total} sungai
@@ -964,22 +1133,62 @@ const DaftarSungai = () => {
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 py-8">
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2 drop-shadow-lg">
-              <Unlock size={20} className="text-green-300" />
-              Semua Level Petualangan
-              <span className="text-sm font-normal text-white/60">({stats.total} level)</span>
-            </h2>
+          {/* Section Tutorial - Dipisahkan dengan gaya berbeda */}
+          <div className="mb-12">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-2xl flex items-center justify-center shadow-xl">
+                <GraduationCap size={20} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white drop-shadow-lg flex items-center gap-2">
+                  📚 Tutorial & Panduan
+                  <span className="text-sm font-normal text-teal-300/70 bg-teal-500/20 px-2 py-0.5 rounded-full border border-teal-400/30">Pemula</span>
+                </h2>
+                <p className="text-xs text-white/60">Pelajari dasar-dasar navigasi sebelum memulai petualangan</p>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {levelSungai.map((level, index) => (
-                <LevelCard 
-                  key={level.id} 
-                  level={level} 
-                  index={index}
-                  onPlay={handleSelectLevel}
-                  gameData={gameScores[level.dbKey]}
-                />
-              ))}
+              {levelSungai
+                .filter(level => level.isTutorial)
+                .map((level, index) => (
+                  <TutorialCard 
+                    key={level.id} 
+                    level={level} 
+                    index={index}
+                    onPlay={handleSelectLevel}
+                  />
+                ))}
+            </div>
+          </div>
+
+          {/* Section Level Petualangan */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl flex items-center justify-center shadow-xl">
+                <Trophy size={20} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white drop-shadow-lg flex items-center gap-2">
+                  🏆 Level Petualangan
+                  <span className="text-sm font-normal text-white/60">({stats.total} level)</span>
+                </h2>
+                <p className="text-xs text-white/60">Tantang diri Anda di berbagai sungai</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {levelSungai
+                .filter(level => !level.isTutorial)
+                .map((level, index) => (
+                  <LevelCard 
+                    key={level.id} 
+                    level={level} 
+                    index={index}
+                    onPlay={handleSelectLevel}
+                    gameData={gameScores[level.dbKey]}
+                  />
+                ))}
             </div>
           </div>
 
@@ -996,18 +1205,18 @@ const DaftarSungai = () => {
             <div>
               <h3 className="font-bold text-white drop-shadow-lg mb-1">Info Petualangan</h3>
               <p className="text-white/80 text-sm">
-                Selesaikan setiap level dengan waktu tercepat untuk mendapatkan skor tertinggi! 
-                Data skor, durasi, dan path akan tersimpan di database. Selamat bermain dan jelajahi keindahan sungai-sungai di Kalimantan Selatan!
+                Mulai dari tutorial untuk belajar dasar-dasar navigasi, kemudian tantang diri Anda di berbagai sungai!
+                Setiap level memiliki tingkat kesulitan yang berbeda. Data skor, durasi, dan path akan tersimpan di database.
               </p>
               <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                <span className="flex items-center gap-1 text-teal-300">
+                  <BookOpen size={12} /> Tutorial: Belajar tanpa skor
+                </span>
                 <span className="flex items-center gap-1 text-white/70">
-                  <Star size={12} className="text-purple-300" /> Skor: Nilai pencapaian Anda
+                  <Star size={12} className="text-purple-300" /> Skor: Nilai pencapaian
                 </span>
                 <span className="flex items-center gap-1 text-white/70">
                   <Timer size={12} className="text-blue-300" /> Durasi: Waktu penyelesaian
-                </span>
-                <span className="flex items-center gap-1 text-white/70">
-                  <Route size={12} className="text-blue-300" /> Jalur Gambar: Path yang digambar
                 </span>
               </div>
             </div>
@@ -1023,7 +1232,7 @@ const DaftarSungai = () => {
         loading={joiningRoom}
       />
 
-      {/* CSS Animations */}
+      {/* CSS Animations - Sama seperti sebelumnya */}
       <style jsx>{`
         @keyframes float {
           0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
@@ -1069,11 +1278,6 @@ const DaftarSungai = () => {
           50% { transform: rotate(5deg); }
         }
         
-        @keyframes scale-in {
-          0% { transform: scale(0.9); opacity: 0; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        
         @keyframes pulse {
           0%, 100% { transform: scale(1); opacity: 0.3; }
           50% { transform: scale(1.2); opacity: 0.5; }
@@ -1105,10 +1309,6 @@ const DaftarSungai = () => {
         
         .animate-sway {
           animation: sway ease-in-out infinite;
-        }
-        
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
         }
       `}</style>
     </div>
