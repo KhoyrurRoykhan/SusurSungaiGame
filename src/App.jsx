@@ -16,6 +16,7 @@ import SungaiPelambuan from './components/game/SungaiPelambuan';
 import LoginRegister from './components/LoginRegister';
 import DashboardGuru from './components/DashboardGuru';
 import Maintenance from './components/Maintenance';
+import Tutorial from './components/game/Tutorial';
 
 
 
@@ -28,6 +29,7 @@ function App() {
         <Route path="/loginregister" element={<LoginRegister />} />
         <Route path="/dashboard" element={<DashboardGuru />} />
         <Route path="/sungai" element={<DaftarSungai />} />
+        <Route path="/game/tutorial" element={<Tutorial />} />
         <Route path="/game/barito" element={<SungaiBarito />} />
         <Route path="/game/alalak" element={<SungaiAlalak />} />
         <Route path="/game/alalak2" element={<SungaiAlalakPart2 />} />
