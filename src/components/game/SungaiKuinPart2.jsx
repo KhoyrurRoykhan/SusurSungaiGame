@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   AlertCircle,
   Flag,
-  Eraser,
   Grid3x3,
   Eye,
   EyeOff,
@@ -19,7 +18,8 @@ import {
   Trophy,
   Save,
   RefreshCw,
-  X
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import L from 'leaflet';
@@ -27,6 +27,10 @@ import 'leaflet/dist/leaflet.css';
 import { LayersControl } from 'react-leaflet';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
+// Import CodeMirror
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { oneDark } from '@codemirror/theme-one-dark';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
@@ -197,32 +201,6 @@ const extractCoordinates = (geojson) => {
 // Ekstrak koordinat sungai Kuin part 2
 const batasSungai = extractCoordinates(sungaiKuinPart2GeoJSON);
 
-// Fungsi untuk menghitung titik tengah
-const calculateCenter = (coordinates) => {
-  if (coordinates.length === 0) return [-3.3012, 114.5832];
-  let latSum = 0, lngSum = 0;
-  coordinates.forEach(coord => {
-    latSum += coord[0];
-    lngSum += coord[1];
-  });
-  return [latSum / coordinates.length, lngSum / coordinates.length];
-};
-
-const centerPoint = calculateCenter(batasSungai);
-
-// Fungsi mencari titik ekstrim
-const findExtremePoints = (coordinates) => {
-  let southPoint = coordinates[0];
-  let northPoint = coordinates[0];
-  coordinates.forEach(coord => {
-    if (coord[0] < southPoint[0]) southPoint = coord;
-    if (coord[0] > northPoint[0]) northPoint = coord;
-  });
-  return { southPoint, northPoint };
-};
-
-const { southPoint, northPoint } = findExtremePoints(batasSungai);
-
 // Titik Start dan Finish
 const startPoint = [-3.2989, 114.5802];
 const finishPoint = [-3.3035, 114.5861];
@@ -350,7 +328,7 @@ const SungaiKuinPart2 = () => {
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
-  const textareaRef = useRef(null);
+  const editorRef = useRef(null); // Ref untuk CodeMirror
   
   // Ambil data dari state
   const gameState = location.state || {};
@@ -385,6 +363,34 @@ const SungaiKuinPart2 = () => {
   const [existingTime, setExistingTime] = useState(0);
   const [existingPath, setExistingPath] = useState(0);
 
+  // Refs untuk menyimpan state terbaru di dalam fungsi async
+  const turtlePosRef = useRef(turtlePos);
+  const turtleAngleRef = useRef(turtleAngle);
+  const trailRef = useRef(trail);
+  const collisionCountRef = useRef(collisionCount);
+  const isFinishedRef = useRef(isFinished);
+
+  // Update refs ketika state berubah
+  useEffect(() => {
+    turtlePosRef.current = turtlePos;
+  }, [turtlePos]);
+
+  useEffect(() => {
+    turtleAngleRef.current = turtleAngle;
+  }, [turtleAngle]);
+
+  useEffect(() => {
+    trailRef.current = trail;
+  }, [trail]);
+
+  useEffect(() => {
+    collisionCountRef.current = collisionCount;
+  }, [collisionCount]);
+
+  useEffect(() => {
+    isFinishedRef.current = isFinished;
+  }, [isFinished]);
+
   // Timer
   useEffect(() => {
     let interval;
@@ -411,10 +417,14 @@ const SungaiKuinPart2 = () => {
     }
   }, []);
 
-  // Fokus textarea
+  // Fokus ke editor setelah eksekusi selesai
   useEffect(() => {
-    if (!isExecuting && textareaRef.current && !isFinished) {
-      textareaRef.current.focus();
+    if (!isExecuting && !isFinished && editorRef.current) {
+      setTimeout(() => {
+        if (editorRef.current && editorRef.current.view) {
+          editorRef.current.view.focus();
+        }
+      }, 50);
     }
   }, [isExecuting, isFinished]);
 
@@ -444,14 +454,6 @@ const SungaiKuinPart2 = () => {
         updatedAt: new Date().toISOString()
       };
 
-      console.log('💾 Data yang akan disimpan:', {
-        sungai: dbKey,
-        skor: skor,
-        time: elapsedTime,
-        pathSegments: pathSegments,
-        collisionCount: collisionCount
-      });
-
       const docRef = doc(db, 'game_skor', user.uid);
       const docSnap = await getDoc(docRef);
       
@@ -469,8 +471,6 @@ const SungaiKuinPart2 = () => {
       };
 
       await setDoc(docRef, updatedData, { merge: true });
-
-      console.log('✅ Data berhasil disimpan!');
       return true;
     } catch (error) {
       console.error('❌ Error saving to database:', error);
@@ -521,9 +521,8 @@ const SungaiKuinPart2 = () => {
   };
 
   // Animasi gerak
-  const animateMove = (targetPos) => {
+  const animateMove = (startPos, targetPos, setPos) => {
     return new Promise((resolve) => {
-      const startPos = [...turtlePos];
       const steps = 20;
       let currentStep = 0;
       
@@ -533,7 +532,7 @@ const SungaiKuinPart2 = () => {
         const currentLat = startPos[0] + (targetPos[0] - startPos[0]) * progress;
         const currentLng = startPos[1] + (targetPos[1] - startPos[1]) * progress;
         
-        setTurtlePos([currentLat, currentLng]);
+        setPos([currentLat, currentLng]);
         
         if (currentStep >= steps) {
           clearInterval(interval);
@@ -545,111 +544,165 @@ const SungaiKuinPart2 = () => {
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // Eksekusi perintah (TANPA GOTO)
-  const executeCommand = async (cmd) => {
+  // Eksekusi perintah tunggal - menggunakan refs untuk state terbaru
+  const executeCommand = async (cmd, currentPos, currentAngle, currentTrail, currentCollisions) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
     const value = parseFloat(parts[1]);
+    
+    let newPos = currentPos;
+    let newAngle = currentAngle;
+    let newTrail = [...currentTrail];
+    let newCollisions = currentCollisions;
+    let commandError = null;
 
     switch(action) {
       case 'forward':
-      case 'fd':
-        if (isNaN(value)) throw new Error('forward membutuhkan angka (meter)');
-        const targetPos = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle, value);
+      case 'fd': {
+        if (isNaN(value)) {
+          commandError = new Error('forward membutuhkan angka (meter)');
+          break;
+        }
+        const targetPos = calculateNewPos(currentPos[0], currentPos[1], currentAngle, value);
         
         if (!isValidPosition(targetPos)) {
-          const boundaryPos = findBoundaryPoint(turtlePos, targetPos);
-          if (boundaryPos[0] !== turtlePos[0] || boundaryPos[1] !== turtlePos[1]) {
-            await animateMove(boundaryPos);
-            setTurtlePos(boundaryPos);
-            setTrail(prev => [...prev, boundaryPos]);
+          const boundaryPos = findBoundaryPoint(currentPos, targetPos);
+          if (boundaryPos[0] !== currentPos[0] || boundaryPos[1] !== currentPos[1]) {
+            await animateMove(currentPos, boundaryPos, (pos) => {
+              newPos = pos;
+              setTurtlePos(pos);
+            });
+            newPos = boundaryPos;
+            newTrail = [...newTrail, boundaryPos];
+            setTrail(newTrail);
             
-            const currentScore = calculateScore(collisionCount);
-            setCollisionCount(prev => prev + 1);
-            const newScore = calculateScore(collisionCount + 1);
+            newCollisions = currentCollisions + 1;
+            setCollisionCount(newCollisions);
+            
+            const currentScore = calculateScore(currentCollisions);
+            const newScore = calculateScore(newCollisions);
             
             if (currentScore === 0) {
-              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${collisionCount + 1}x)`);
+              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${newCollisions}x)`);
             } else {
-              setAlertMsg(`⚠️ Kura-kura keluar sungai! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${collisionCount + 1})`);
+              setAlertMsg(`⚠️ Kura-kura keluar sungai! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
             }
             setTimeout(() => setAlertMsg(null), 3000);
-            throw new Error('Perintah melebihi batas wilayah');
+            commandError = new Error('Perintah melebihi batas wilayah');
+            break;
           } else {
-            throw new Error('Tidak bisa bergerak, sudah di batas');
+            commandError = new Error('Tidak bisa bergerak, sudah di batas');
+            break;
           }
         }
         
-        await animateMove(targetPos);
-        setTurtlePos(targetPos);
-        setTrail(prev => [...prev, targetPos]);
+        await animateMove(currentPos, targetPos, (pos) => {
+          newPos = pos;
+          setTurtlePos(pos);
+        });
+        newPos = targetPos;
+        newTrail = [...newTrail, targetPos];
+        setTrail(newTrail);
+        
         if (checkFinish(targetPos)) {
           setIsFinished(true);
         }
         break;
+      }
         
       case 'backward':
-      case 'bk':
-        if (isNaN(value)) throw new Error('backward membutuhkan angka (meter)');
-        const backTarget = calculateNewPos(turtlePos[0], turtlePos[1], turtleAngle + 180, value);
+      case 'bk': {
+        if (isNaN(value)) {
+          commandError = new Error('backward membutuhkan angka (meter)');
+          break;
+        }
+        const backTarget = calculateNewPos(currentPos[0], currentPos[1], currentAngle + 180, value);
         
         if (!isValidPosition(backTarget)) {
-          const boundaryPos = findBoundaryPoint(turtlePos, backTarget);
-          if (boundaryPos[0] !== turtlePos[0] || boundaryPos[1] !== turtlePos[1]) {
-            await animateMove(boundaryPos);
-            setTurtlePos(boundaryPos);
-            setTrail(prev => [...prev, boundaryPos]);
+          const boundaryPos = findBoundaryPoint(currentPos, backTarget);
+          if (boundaryPos[0] !== currentPos[0] || boundaryPos[1] !== currentPos[1]) {
+            await animateMove(currentPos, boundaryPos, (pos) => {
+              newPos = pos;
+              setTurtlePos(pos);
+            });
+            newPos = boundaryPos;
+            newTrail = [...newTrail, boundaryPos];
+            setTrail(newTrail);
             
-            const currentScore = calculateScore(collisionCount);
-            setCollisionCount(prev => prev + 1);
-            const newScore = calculateScore(collisionCount + 1);
+            newCollisions = currentCollisions + 1;
+            setCollisionCount(newCollisions);
+            
+            const currentScore = calculateScore(currentCollisions);
+            const newScore = calculateScore(newCollisions);
             
             if (currentScore === 0) {
-              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${collisionCount + 1}x)`);
+              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${newCollisions}x)`);
             } else {
-              setAlertMsg(`⚠️ Kura-kura keluar sungai! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${collisionCount + 1})`);
+              setAlertMsg(`⚠️ Kura-kura keluar sungai! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
             }
             setTimeout(() => setAlertMsg(null), 3000);
-            throw new Error('Perintah melebihi batas wilayah');
+            commandError = new Error('Perintah melebihi batas wilayah');
+            break;
           } else {
-            throw new Error('Tidak bisa bergerak, sudah di batas');
+            commandError = new Error('Tidak bisa bergerak, sudah di batas');
+            break;
           }
         }
         
-        await animateMove(backTarget);
-        setTurtlePos(backTarget);
-        setTrail(prev => [...prev, backTarget]);
+        await animateMove(currentPos, backTarget, (pos) => {
+          newPos = pos;
+          setTurtlePos(pos);
+        });
+        newPos = backTarget;
+        newTrail = [...newTrail, backTarget];
+        setTrail(newTrail);
+        
         if (checkFinish(backTarget)) {
           setIsFinished(true);
         }
         break;
+      }
         
       case 'left':
-      case 'lt':
-        if (isNaN(value)) throw new Error('left membutuhkan angka (derajat)');
-        setTurtleAngle(prev => {
-          const newAngle = (prev - value) % 360;
-          return newAngle < 0 ? newAngle + 360 : newAngle;
-        });
+      case 'lt': {
+        if (isNaN(value)) {
+          commandError = new Error('left membutuhkan angka (derajat)');
+          break;
+        }
+        const newAngleValue = ((currentAngle - value) % 360 + 360) % 360;
+        newAngle = newAngleValue;
+        setTurtleAngle(newAngleValue);
         await delay(300);
         break;
+      }
         
       case 'right':
-      case 'rt':
-        if (isNaN(value)) throw new Error('right membutuhkan angka (derajat)');
-        setTurtleAngle(prev => {
-          const newAngle = (prev + value) % 360;
-          return newAngle < 0 ? newAngle + 360 : newAngle;
-        });
+      case 'rt': {
+        if (isNaN(value)) {
+          commandError = new Error('right membutuhkan angka (derajat)');
+          break;
+        }
+        const newAngleValue = ((currentAngle + value) % 360 + 360) % 360;
+        newAngle = newAngleValue;
+        setTurtleAngle(newAngleValue);
         await delay(300);
         break;
+      }
         
       default:
-        throw new Error(`Perintah tidak dikenal: ${action}`);
+        commandError = new Error(`Perintah tidak dikenal: ${action}`);
     }
+
+    return {
+      position: newPos,
+      angle: newAngle,
+      trail: newTrail,
+      collisions: newCollisions,
+      error: commandError
+    };
   };
 
-  // Jalankan semua perintah
+  // Jalankan semua perintah - MULTI-LINE SUPPORT
   const runCommands = async () => {
     if (!commands.trim() || isExecuting || isFinished) return;
     
@@ -657,39 +710,142 @@ const SungaiKuinPart2 = () => {
     setError('');
     if (!startTime) setStartTime(Date.now());
     
-    const lines = commands.split('\n').filter(line => line.trim());
+    // Split commands by newline dan filter komentar
+    const lines = commands.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('#'));
+    
+    if (lines.length === 0) {
+      setIsExecuting(false);
+      setError('Tidak ada perintah valid!');
+      setTimeout(() => {
+        if (editorRef.current && editorRef.current.view) {
+          editorRef.current.view.focus();
+        }
+      }, 50);
+      return;
+    }
+    
     const history = [];
     
+    // Ambil state terbaru dari refs
+    let currentPos = turtlePosRef.current;
+    let currentAngle = turtleAngleRef.current;
+    let currentTrail = trailRef.current;
+    let currentCollisions = collisionCountRef.current;
+    
     try {
-      for (const line of lines) {
-        if (isFinished) break;
+      // Eksekusi perintah secara berurutan dari atas ke bawah
+      for (let i = 0; i < lines.length; i++) {
+        // Cek apakah sudah finish
+        if (isFinishedRef.current) break;
         
-        history.push({ cmd: line, status: 'running' });
+        const currentCmd = lines[i];
+        history.push({ 
+          cmd: currentCmd, 
+          status: 'running',
+          index: i + 1,
+          total: lines.length
+        });
         setCommandHistory([...history]);
         
-        await executeCommand(line);
+        // Jalankan perintah dengan state terbaru
+        const result = await executeCommand(
+          currentCmd,
+          currentPos,
+          currentAngle,
+          currentTrail,
+          currentCollisions
+        );
         
+        // Update state dengan hasil eksekusi
+        if (result.error) {
+          history[history.length - 1].status = 'error';
+          history[history.length - 1].error = result.error.message;
+          setCommandHistory([...history]);
+          throw result.error;
+        }
+        
+        // Update posisi, sudut, trail, dan collisions
+        currentPos = result.position;
+        currentAngle = result.angle;
+        currentTrail = result.trail;
+        currentCollisions = result.collisions;
+        
+        // Update refs
+        turtlePosRef.current = currentPos;
+        turtleAngleRef.current = currentAngle;
+        trailRef.current = currentTrail;
+        collisionCountRef.current = currentCollisions;
+        
+        // Update status menjadi selesai
         history[history.length - 1].status = 'done';
         setCommandHistory([...history]);
+        
+        // Delay kecil antar perintah untuk visualisasi yang lebih baik
+        await delay(100);
       }
+      
+      // Jika semua perintah selesai dan belum mencapai finish
+      if (!isFinishedRef.current) {
+        setAlertMsg('✅ Semua perintah selesai dieksekusi!');
+        setTimeout(() => setAlertMsg(null), 2000);
+      }
+      
     } catch (err) {
       setError(err.message);
-      if (history.length) history[history.length - 1].status = 'error';
-      setCommandHistory([...history]);
+      if (history.length) {
+        history[history.length - 1].status = 'error';
+        history[history.length - 1].error = err.message;
+      }
+      setCommandHistory([history]);
+      
+      setAlertMsg(`❌ Error pada baris ${history.length}: ${err.message}`);
+      setTimeout(() => setAlertMsg(null), 4000);
     }
     
     setIsExecuting(false);
     setCommands('');
+    
+    // Fokus ke editor setelah eksekusi selesai
+    setTimeout(() => {
+      if (editorRef.current && editorRef.current.view) {
+        editorRef.current.view.focus();
+      }
+    }, 100);
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      runCommands();
-    }
+  // Reset
+  const reset = () => {
+    setTurtlePos(startPoint);
+    setTurtleAngle(0);
+    setCommands('');
+    setCommandHistory([]);
+    setError('');
+    setStartTime(null);
+    setElapsedTime(0);
+    setIsFinished(false);
+    setTrail([startPoint]);
+    setCollisionCount(0);
+    setShowUpdateModal(false);
+    setAlertMsg(null);
+    
+    // Reset refs
+    turtlePosRef.current = startPoint;
+    turtleAngleRef.current = 0;
+    trailRef.current = [startPoint];
+    collisionCountRef.current = 0;
+    isFinishedRef.current = false;
+    
+    // Fokus ke editor setelah reset
+    setTimeout(() => {
+      if (editorRef.current && editorRef.current.view) {
+        editorRef.current.view.focus();
+      }
+    }, 100);
   };
 
-  // Handle finish - DIPERBAIKI LEBIH ROBUST
+  // Handle finish
   const handleFinish = async () => {
     setIsFinished(true);
     
@@ -702,24 +858,18 @@ const SungaiKuinPart2 = () => {
     
     const existing = await checkExistingData();
     
-    // Cek apakah data existing memiliki nilai yang valid (bukan 0 semua)
     let hasValidData = false;
     
     if (existing) {
-      // Cek apakah ada nilai yang bukan 0
       hasValidData = (existing.skor > 0 || existing.time > 0 || existing.path > 0);
     }
     
     if (existing && hasValidData) {
-      // Ada data valid (bukan 0,0,0), tampilkan modal konfirmasi
-      console.log('📊 Data existing valid, tampilkan modal konfirmasi');
       setExistingScore(existing.skor || 0);
       setExistingTime(existing.time || 0);
       setExistingPath(existing.path || 0);
       setShowUpdateModal(true);
     } else {
-      // Tidak ada data atau data kosong (0,0,0), langsung simpan
-      console.log('📝 Tidak ada data valid, langsung simpan data baru');
       const saved = await saveToDatabase();
       if (saved) {
         setAlertMsg(`✅ Data berhasil disimpan! Skor: ${finalSkor}, Segmen: ${pathSegments}`);
@@ -744,28 +894,6 @@ const SungaiKuinPart2 = () => {
     }
   };
 
-  const reset = () => {
-    setTurtlePos(startPoint);
-    setTurtleAngle(0);
-    setCommands('');
-    setCommandHistory([]);
-    setError('');
-    setStartTime(null);
-    setElapsedTime(0);
-    setIsFinished(false);
-    setTrail([startPoint]);
-    setCollisionCount(0);
-    setShowUpdateModal(false);
-    
-    setTimeout(() => {
-      if (textareaRef.current) textareaRef.current.focus();
-    }, 100);
-  };
-
-  const clearTrail = () => {
-    setTrail([turtlePos]);
-  };
-
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -782,7 +910,7 @@ const SungaiKuinPart2 = () => {
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <motion.button
             onClick={() => navigate('/sungai')}
@@ -824,7 +952,7 @@ const SungaiKuinPart2 = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Map */}
         <div className="flex-1 relative">
           <MapContainer
@@ -980,7 +1108,7 @@ const SungaiKuinPart2 = () => {
               </Popup>
             </Marker>
 
-            {/* Marker Lokasi Sungai Kuin */}
+            {/* Marker Lokasi Sungai Kuin - Tampil di Peta */}
             {lokasiSungaiKuin.map((lokasi, idx) => (
               <Marker
                 key={idx}
@@ -1075,24 +1203,86 @@ const SungaiKuinPart2 = () => {
         </div>
 
         {/* Control Panel */}
-        <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
-          {/* Command Input */}
-          <div className="p-4 border-b border-gray-700">
-            <div className="flex items-center gap-2 mb-2 text-gray-300">
-              <Terminal size={18} />
-              <span className="font-bold text-sm">Terminal Perintah</span>
+        <div className="w-[420px] bg-gray-800 border-l border-gray-700 flex flex-col h-full min-h-0">
+          {/* Command Input dengan CodeMirror */}
+          <div className="flex-shrink-0 p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-gray-300">
+                <Terminal size={18} />
+                <span className="font-bold text-sm">Terminal Perintah</span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                <span className="bg-gray-700 px-2 py-0.5 rounded">Enter</span>
+                <span>Jalankan</span>
+                <span className="text-gray-600">|</span>
+                <span className="bg-gray-700 px-2 py-0.5 rounded">Shift+Enter</span>
+                <span>Baris Baru</span>
+              </div>
             </div>
             
-            <textarea
-              ref={textareaRef}
-              value={commands}
-              onChange={(e) => setCommands(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\nright 45\nbackward 30\n\nTekan Enter untuk menjalankan`}
-              className="w-full h-36 bg-gray-900 text-green-400 font-mono text-sm p-3 rounded-lg border border-gray-600 focus:border-teal-500 focus:outline-none resize-none"
-              disabled={isExecuting}
-              autoFocus
-            />
+            <div className="relative border border-gray-600 rounded-lg overflow-hidden bg-gray-900">
+              <CodeMirror
+                ref={editorRef}
+                value={commands}
+                height="160px"
+                maxHeight="160px"
+                extensions={[javascript()]}
+                theme={oneDark}
+                onChange={(value) => {
+                  if (!isExecuting) {
+                    setCommands(value);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    runCommands();
+                  }
+                }}
+                autoFocus={true}
+                editable={!isExecuting}
+                basicSetup={{
+                  lineNumbers: true,
+                  highlightActiveLineGutter: true,
+                  highlightSpecialChars: true,
+                  foldGutter: true,
+                  drawSelection: true,
+                  dropCursor: true,
+                  allowMultipleSelections: true,
+                  indentOnInput: true,
+                  syntaxHighlighting: true,
+                  bracketMatching: true,
+                  closeBrackets: true,
+                  autocompletion: true,
+                  rectangularSelection: true,
+                  crosshairCursor: true,
+                  highlightActiveLine: true,
+                  highlightSelectionMatches: true,
+                  closeBracketsKeymap: true,
+                  defaultKeymap: true,
+                  searchKeymap: true,
+                  historyKeymap: true,
+                  foldKeymap: true,
+                  completionKeymap: true,
+                  lintKeymap: true,
+                }}
+              />
+              {isExecuting && (
+                <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-gray-800/90 px-3 py-1 rounded-lg z-10">
+                  <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-teal-400 text-xs font-mono">Menjalankan...</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+              <span>
+                {commands.split('\n').filter(line => line.trim() && !line.trim().startsWith('#')).length} perintah
+              </span>
+              <span>
+                {commands.split('\n').filter(line => line.trim().startsWith('#')).length} komentar
+              </span>
+            </div>
             
             {error && (
               <div className="mt-2 p-2 bg-red-900/50 border border-red-500 rounded-lg flex items-center gap-2 text-red-300 text-xs">
@@ -1109,127 +1299,135 @@ const SungaiKuinPart2 = () => {
                 whileHover={!isExecuting && !isFinished ? { scale: 1.02 } : {}}
                 whileTap={!isExecuting && !isFinished ? { scale: 0.98 } : {}}
               >
-                {isExecuting ? <Pause size={18} /> : <Play size={18} />}
-                {isExecuting ? 'Running...' : isFinished ? 'Selesai!' : 'Jalankan'}
+                {isExecuting ? (
+                  <>
+                    <Pause size={18} className="animate-pulse" />
+                    Menjalankan...
+                  </>
+                ) : isFinished ? (
+                  'Selesai! 🎉'
+                ) : (
+                  <>
+                    <Play size={18} />
+                    Jalankan Semua
+                  </>
+                )}
               </motion.button>
               
               <motion.button
                 onClick={reset}
-                className="px-4 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors"
+                className="px-4 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors flex items-center gap-1"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                title="Reset semua ke awal"
               >
                 <RotateCcw size={18} />
               </motion.button>
             </div>
           </div>
 
-          {/* Command History */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <h3 className="text-sm font-bold text-gray-400 mb-3">Riwayat Eksekusi</h3>
+          {/* Command History - scrollable dengan batas */}
+          <div className="flex-1 overflow-y-auto p-4 min-h-0" style={{ maxHeight: '280px' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-400 flex items-center gap-2">
+                <ChevronRight size={14} />
+                Riwayat Eksekusi
+              </h3>
+              {commandHistory.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  {commandHistory.filter(h => h.status === 'done').length}/{commandHistory.length} selesai
+                </span>
+              )}
+            </div>
             
             {commandHistory.length === 0 ? (
-              <div className="text-gray-500 text-sm italic text-center py-8">
+              <div className="text-gray-500 text-sm italic text-center py-4">
                 <p>Belum ada perintah dijalankan...</p>
-                <p className="text-xs mt-2">Mulai navigasi dari START ke FINISH!</p>
+                <p className="text-xs mt-1">Mulai navigasi dari START ke FINISH!</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {commandHistory.map((item, idx) => (
                   <div 
                     key={idx}
-                    className={`p-2 rounded-lg text-sm font-mono ${
+                    className={`p-1.5 rounded-lg text-xs font-mono transition-all ${
                       item.status === 'done' ? 'bg-green-900/30 text-green-400 border border-green-700' :
                       item.status === 'error' ? 'bg-red-900/30 text-red-400 border border-red-700' :
-                      'bg-amber-900/30 text-amber-400 border border-amber-700'
+                      'bg-amber-900/30 text-amber-400 border border-amber-700 animate-pulse'
                     }`}
                   >
-                    <span className="opacity-50 mr-2">{idx + 1}.</span>
-                    {item.cmd}
+                    <div className="flex items-center justify-between">
+                      <span className="opacity-50 mr-1.5 text-[10px]">#{item.index || idx + 1}</span>
+                      <span className="flex-1 truncate">{item.cmd}</span>
+                      <span className="text-[10px] opacity-50 ml-1.5">
+                        {item.status === 'done' && '✅'}
+                        {item.status === 'error' && '❌'}
+                        {item.status === 'running' && '⏳'}
+                      </span>
+                    </div>
+                    {item.error && (
+                      <div className="mt-0.5 text-[10px] text-red-300 opacity-75 truncate">
+                        {item.error}
+                      </div>
+                    )}
+                    {item.total && (
+                      <div className="mt-0.5 text-[9px] text-gray-500">
+                        {idx + 1} / {item.total}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Daftar Lokasi Sungai Kuin */}
-          <div className="p-4 border-t border-gray-700 max-h-60 overflow-y-auto">
-            <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
-              <MapPin size={16} />
-              Lokasi di Sungai Kuin ({lokasiSungaiKuin.length})
-            </h3>
-            <div className="space-y-2 text-xs">
-              {lokasiSungaiKuin.length === 0 ? (
-                <div className="text-gray-500 italic">Tidak ada lokasi ditemukan</div>
-              ) : (
-                lokasiSungaiKuin.map((lokasi, idx) => (
-                  <div key={idx} className="p-2 bg-gray-800 rounded-lg border border-gray-700">
-                    <div className="font-bold text-gray-200">{lokasi.Nama_Lokasi}</div>
-                    <div className="text-gray-400">{lokasi.Kategori_Lokasi}</div>
-                    <div className="text-gray-500 truncate">{lokasi.Alamat_Wilayah}</div>
-                    <div className="flex gap-2 mt-1">
-                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-900/50 text-green-300' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-red-900/50 text-red-300'}`}>
-                        {lokasi.Akses_Lokasi}
-                      </span>
-                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-700 text-gray-400'}`}>
-                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'Perahu' : 'Darat'}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
+          {/* Info Jejak & Grid - fixed di bawah */}
+          <div className="flex-shrink-0 p-3 bg-gray-900/50 border-t border-gray-700">
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Panjang Jejak</p>
+                <p className="text-amber-400 font-mono font-bold text-sm">{trail.length - 1} segmen</p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Total Jarak</p>
+                <p className="text-teal-400 font-mono font-bold text-sm">
+                  {(trail.length > 1 ? 
+                    (Math.sqrt(
+                      Math.pow(trail[trail.length-1][0] - trail[0][0], 2) + 
+                      Math.pow(trail[trail.length-1][1] - trail[0][1], 2)
+                    ) * 111).toFixed(2) : 0)} km
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Tabrakan</p>
+                <p className={collisionCount > 0 ? 'text-red-400 font-bold text-sm' : 'text-green-400 font-bold text-sm'}>
+                  {collisionCount > 0 ? `⚠️ ${collisionCount}x` : '✅ 0x'}
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Skor</p>
+                <p className="text-purple-400 font-bold text-sm">
+                  {isFinished ? calculateScore(collisionCount) : '—'}
+                </p>
+              </div>
             </div>
-          </div>
-
-          {/* Info Jejak & Kontrol Grid */}
-          <div className="p-3 bg-gray-900/50 border-t border-gray-700 space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Panjang Jejak:</span>
-              <span className="text-amber-400 font-mono font-bold">{trail.length - 1} segmen</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Total Jarak:</span>
-              <span className="text-teal-400 font-mono font-bold">
-                {(trail.length > 1 ? 
-                  (Math.sqrt(
-                    Math.pow(trail[trail.length-1][0] - trail[0][0], 2) + 
-                    Math.pow(trail[trail.length-1][1] - trail[0][1], 2)
-                  ) * 111).toFixed(2) : 0)} km
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Tabrakan:</span>
-              <span className={collisionCount > 0 ? 'text-red-400 font-bold' : 'text-green-400 font-bold'}>
-                {collisionCount > 0 ? `⚠️ ${collisionCount}x` : '✅ 0x'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Skor:</span>
-              <span className="text-purple-400 font-bold">
-                {isFinished ? calculateScore(collisionCount) : '—'}
-              </span>
-            </div>
-            
-            <button onClick={clearTrail} className="w-full py-1 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition flex items-center justify-center gap-1">
-              <Eraser size={12} /> Hapus Jejak
-            </button>
 
             {/* Kontrol Grid */}
-            <div className="pt-2 border-t border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-gray-300 text-xs font-bold">
-                  <Grid3x3 size={14} />
+            <div className="bg-gray-800 rounded-lg p-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5 text-gray-300 text-xs font-bold">
+                  <Grid3x3 size={13} />
                   <span>KOTAK GRID</span>
                 </div>
                 <button
                   onClick={() => setGridEnabled(!gridEnabled)}
-                  className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+                  className="p-0.5 hover:bg-gray-700 rounded transition-colors"
                 >
-                  {gridEnabled ? <Eye size={14} className="text-teal-400" /> : <EyeOff size={14} className="text-gray-500" />}
+                  {gridEnabled ? <Eye size={13} className="text-teal-400" /> : <EyeOff size={13} className="text-gray-500" />}
                 </button>
               </div>
-              <div className="flex items-center gap-3">
-                <SlidersHorizontal size={14} className="text-gray-400" />
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={12} className="text-gray-400" />
                 <input
                   type="range"
                   min="200"
@@ -1243,31 +1441,27 @@ const SungaiKuinPart2 = () => {
                     background: gridEnabled ? '#14b8a6' : '#4b5563'
                   }}
                 />
-                <span className="text-xs text-gray-300 font-mono w-16 text-right">
+                <span className="text-xs text-gray-300 font-mono w-14 text-right">
                   {gridSizeMeters} m
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500 mt-1 text-center">
+              <p className="text-[9px] text-gray-500 mt-0.5 text-center">
                 Jarak antar garis grid (200m - 1km)
               </p>
             </div>
           </div>
 
-          {/* Help */}
-          <div className="p-4 bg-gray-900 border-t border-gray-700">
-            <h4 className="text-xs font-bold text-gray-400 mb-2">PERINTAH YANG TERSEDIA:</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-              <div><span className="text-teal-400">forward</span> / <span className="text-teal-400">fd</span> [m]</div>
-              <div><span className="text-teal-400">backward</span> / <span className="text-teal-400">bk</span> [m]</div>
-              <div><span className="text-teal-400">left</span> / <span className="text-teal-400">lt</span> [°]</div>
-              <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
+          {/* Help - fixed di paling bawah */}
+          <div className="flex-shrink-0 p-2.5 bg-gray-900 border-t border-gray-700">
+            <h4 className="text-[10px] font-bold text-gray-400 mb-1">PERINTAH YANG TERSEDIA:</h4>
+            <div className="grid grid-cols-3 gap-1 text-[10px] text-gray-300">
+              <div><span className="text-teal-400">forward</span>/<span className="text-teal-400">fd</span> [m]</div>
+              <div><span className="text-teal-400">backward</span>/<span className="text-teal-400">bk</span> [m]</div>
+              <div><span className="text-teal-400">left</span>/<span className="text-teal-400">lt</span> [°]</div>
+              <div><span className="text-teal-400">right</span>/<span className="text-teal-400">rt</span> [°]</div>
             </div>
-            <div className="mt-2 text-xs text-gray-500">
-              <span className="text-red-400">⚠️</span> Setiap tabrakan mengurangi 5 poin (minimal 0)
-              <br />
-              <span className="text-green-400">✅</span> Skor = 100 - (tabrakan × 5), minimal 0
-              <br />
-              <span className="text-amber-400">📊</span> Path = jumlah segmen jejak
+            <div className="mt-1 text-[9px] text-gray-500">
+              <span className="text-red-400">⚠️</span> Tabrakan -5 poin &nbsp; <span className="text-green-400">✅</span> Skor: 100 - (tabrakan × 5)
             </div>
           </div>
         </div>
@@ -1369,6 +1563,7 @@ const SungaiKuinPart2 = () => {
               className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl"
               initial={{ scale: 0.5, y: 50 }}
               animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.5, y: 50 }}
             >
               <motion.div 
                 className="w-24 h-24 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden"

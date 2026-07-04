@@ -11,18 +11,15 @@ import {
   ArrowLeft,
   AlertCircle,
   Flag,
-  Eraser,
   Grid3x3,
   Eye,
   EyeOff,
   SlidersHorizontal,
   Trophy,
-  Save,
   RefreshCw,
   X,
   ChevronRight,
   BookOpen,
-  GraduationCap,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   CheckCircle,
@@ -31,17 +28,19 @@ import {
   Navigation,
   Info
 } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LayersControl } from 'react-leaflet';
+// Import CodeMirror dari @uiw
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { oneDark } from '@codemirror/theme-one-dark';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
 // Import file GeoJSON (sungai Martapura part 3)
 import sungaiMartapuraPart3GeoJSON from './geojson/sungaimartapurapart3.json';
-// Import data lokasi sungai
-import dataSungai from './geojson/Data_Sungai.json';
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -215,32 +214,6 @@ const extractCoordinates = (geojson) => {
 // Ekstrak koordinat sungai Martapura part 3
 const batasSungai = extractCoordinates(sungaiMartapuraPart3GeoJSON);
 
-// Fungsi untuk menghitung titik tengah
-const calculateCenter = (coordinates) => {
-  if (coordinates.length === 0) return [-3.3198, 114.5940];
-  let latSum = 0, lngSum = 0;
-  coordinates.forEach(coord => {
-    latSum += coord[0];
-    lngSum += coord[1];
-  });
-  return [latSum / coordinates.length, lngSum / coordinates.length];
-};
-
-const centerPoint = calculateCenter(batasSungai);
-
-// Fungsi mencari titik ekstrim
-const findExtremePoints = (coordinates) => {
-  let southPoint = coordinates[0];
-  let northPoint = coordinates[0];
-  coordinates.forEach(coord => {
-    if (coord[0] < southPoint[0]) southPoint = coord;
-    if (coord[0] > northPoint[0]) northPoint = coord;
-  });
-  return { southPoint, northPoint };
-};
-
-const { southPoint, northPoint } = findExtremePoints(batasSungai);
-
 // Titik Start dan Finish
 const startPoint = [-3.3121, 114.5935];
 const finishPoint = [-3.3274, 114.5945];
@@ -310,56 +283,6 @@ const findBoundaryPoint = (start, target) => {
   return lastValid;
 };
 
-// Filter lokasi Sungai Martapura
-const lokasiSungaiMartapura = dataSungai
-  .filter(item => item.Nama_Sungai === "Sungai Martapura")
-  .map(item => {
-    const lat = parseFloat(item.Latitude.replace(/,/g, '.'));
-    const lng = parseFloat(item.Longitude.replace(/,/g, '.'));
-    return {
-      ...item,
-      lat,
-      lng
-    };
-  })
-  .filter(item => !isNaN(item.lat) && !isNaN(item.lng));
-
-// Fungsi untuk membuat ikon marker
-const getMarkerIcon = (kategori) => {
-  const colors = {
-    'Tempat Ibadah': '#3b82f6',
-    'Perdagangan': '#f59e0b',
-    'Pemerintahan dan Umum': '#8b5cf6',
-    'Infrastruktur Transportasi': '#10b981',
-    'Perusahaan dan Industri': '#ef4444',
-    'Pendidikan': '#ec4899',
-    'Kuliner': '#f97316',
-    'Tempat Wisata': '#06b6d4',
-    'Pemukiman': '#6b7280',
-    'Jembatan': '#f472b6',
-  };
-  const color = colors[kategori] || '#6b7280';
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="
-      width: 24px; height: 24px;
-      background: ${color};
-      border: 2px solid white;
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      color: white;
-      font-weight: bold;
-    ">${kategori ? kategori.charAt(0) : '?'}</div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
-  });
-};
-
 // Komponen Onboarding/Welcome Popup
 const OnboardingPopup = ({ onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -427,7 +350,6 @@ const OnboardingPopup = ({ onClose }) => {
     }
   };
 
-  // Keyboard support
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowRight' || e.key === 'Enter') {
@@ -460,7 +382,6 @@ const OnboardingPopup = ({ onClose }) => {
         exit={{ scale: 0.8, y: 30 }}
         transition={{ type: "spring", damping: 25 }}
       >
-        {/* Header dengan progress */}
         <div className="px-6 pt-6 pb-2">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs text-white/50 font-medium">
@@ -474,7 +395,6 @@ const OnboardingPopup = ({ onClose }) => {
             </button>
           </div>
           
-          {/* Progress bar */}
           <div className="flex gap-1 mb-4">
             {steps.map((_, idx) => (
               <div
@@ -491,7 +411,6 @@ const OnboardingPopup = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Content */}
         <div className="px-6 py-4">
           <div className="flex flex-col items-center text-center">
             <motion.div
@@ -544,7 +463,6 @@ const OnboardingPopup = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Footer dengan navigasi */}
         <div className="px-6 pb-6 pt-2 flex items-center justify-between border-t border-white/10">
           <button
             onClick={prevStep}
@@ -582,11 +500,9 @@ const OnboardingPopup = ({ onClose }) => {
 const Tutorial = () => {
   const [alertMsg, setAlertMsg] = useState(null);
   const navigate = useNavigate();
-  const location = useLocation();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const geojsonRef = useRef(null);
-  const textareaRef = useRef(null);
   
   // State untuk Onboarding
   const [showOnboarding, setShowOnboarding] = useState(true);
@@ -610,7 +526,7 @@ const Tutorial = () => {
   const [gridEnabled, setGridEnabled] = useState(true);
   const [gridSizeMeters, setGridSizeMeters] = useState(275);
 
-  // State untuk popup hasil tutorial (tidak disimpan ke database)
+  // State untuk popup hasil tutorial
   const [showResultPopup, setShowResultPopup] = useState(false);
 
   // Refs untuk menyimpan state terbaru di dalam fungsi async
@@ -667,15 +583,6 @@ const Tutorial = () => {
     }
   }, []);
 
-  // Fokus textarea setelah onboarding selesai
-  useEffect(() => {
-    if (!showOnboarding && !isExecuting && textareaRef.current && !isFinished) {
-      setTimeout(() => {
-        textareaRef.current.focus();
-      }, 300);
-    }
-  }, [showOnboarding, isExecuting, isFinished]);
-
   // Fungsi untuk menghitung skor
   const calculateScore = (collisions) => {
     return Math.max(0, 100 - (collisions * 5));
@@ -722,7 +629,7 @@ const Tutorial = () => {
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // Eksekusi perintah tunggal - menggunakan refs untuk state terbaru
+  // Eksekusi perintah tunggal
   const executeCommand = async (cmd, currentPos, currentAngle, currentTrail, currentCollisions) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
@@ -746,7 +653,6 @@ const Tutorial = () => {
         if (!isValidPosition(targetPos)) {
           const boundaryPos = findBoundaryPoint(currentPos, targetPos);
           if (boundaryPos[0] !== currentPos[0] || boundaryPos[1] !== currentPos[1]) {
-            // Animasi ke batas
             await animateMove(currentPos, boundaryPos, (pos) => {
               newPos = pos;
               setTurtlePos(pos);
@@ -775,7 +681,6 @@ const Tutorial = () => {
           }
         }
         
-        // Animasi ke target
         await animateMove(currentPos, targetPos, (pos) => {
           newPos = pos;
           setTurtlePos(pos);
@@ -882,7 +787,7 @@ const Tutorial = () => {
     };
   };
 
-  // Jalankan semua perintah (MULTI-LINE SUPPORT)
+  // Jalankan semua perintah
   const runCommands = async () => {
     if (!commands.trim() || isExecuting || isFinished) return;
     
@@ -890,10 +795,9 @@ const Tutorial = () => {
     setError('');
     if (!startTime) setStartTime(Date.now());
     
-    // Split commands by newline and filter empty lines
     const lines = commands.split('\n')
       .map(line => line.trim())
-      .filter(line => line.length > 0 && !line.startsWith('#')); // Support comments with #
+      .filter(line => line.length > 0 && !line.startsWith('#'));
     
     if (lines.length === 0) {
       setIsExecuting(false);
@@ -902,17 +806,13 @@ const Tutorial = () => {
     }
     
     const history = [];
-    
-    // Ambil state terbaru dari refs
     let currentPos = turtlePosRef.current;
     let currentAngle = turtleAngleRef.current;
     let currentTrail = trailRef.current;
     let currentCollisions = collisionCountRef.current;
     
     try {
-      // Eksekusi perintah secara berurutan dari atas ke bawah
       for (let i = 0; i < lines.length; i++) {
-        // Cek apakah sudah finish
         if (isFinishedRef.current) break;
         
         const currentCmd = lines[i];
@@ -924,7 +824,6 @@ const Tutorial = () => {
         });
         setCommandHistory([...history]);
         
-        // Jalankan perintah dengan state terbaru
         const result = await executeCommand(
           currentCmd,
           currentPos,
@@ -933,36 +832,28 @@ const Tutorial = () => {
           currentCollisions
         );
         
-        // Update state dengan hasil eksekusi
         if (result.error) {
-          // Ada error, hentikan eksekusi
           history[history.length - 1].status = 'error';
           history[history.length - 1].error = result.error.message;
           setCommandHistory([...history]);
           throw result.error;
         }
         
-        // Update posisi, sudut, trail, dan collisions
         currentPos = result.position;
         currentAngle = result.angle;
         currentTrail = result.trail;
         currentCollisions = result.collisions;
         
-        // Update refs
         turtlePosRef.current = currentPos;
         turtleAngleRef.current = currentAngle;
         trailRef.current = currentTrail;
         collisionCountRef.current = currentCollisions;
         
-        // Update status menjadi selesai
         history[history.length - 1].status = 'done';
         setCommandHistory([...history]);
-        
-        // Delay kecil antar perintah untuk visualisasi yang lebih baik
         await delay(100);
       }
       
-      // Jika semua perintah selesai dan belum mencapai finish
       if (!isFinishedRef.current) {
         setAlertMsg('✅ Semua perintah selesai dieksekusi!');
         setTimeout(() => setAlertMsg(null), 2000);
@@ -981,26 +872,9 @@ const Tutorial = () => {
     }
     
     setIsExecuting(false);
-    // Kosongkan textarea setelah eksekusi selesai
     setCommands('');
   };
 
-  // Handle keyboard - Enter untuk menjalankan, Shift+Enter untuk baris baru
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      if (e.shiftKey) {
-        // Shift+Enter = baris baru (multi-line)
-        // Biarkan default behavior
-        return;
-      } else {
-        // Enter = jalankan perintah
-        e.preventDefault();
-        runCommands();
-      }
-    }
-  };
-
-  // Handle finish - TAMPILKAN POPUP TANPA MENYIMPAN KE DATABASE
   const handleFinish = () => {
     setIsFinished(true);
     setShowResultPopup(true);
@@ -1020,21 +894,11 @@ const Tutorial = () => {
     setShowResultPopup(false);
     setAlertMsg(null);
     
-    // Reset refs
     turtlePosRef.current = startPoint;
     turtleAngleRef.current = 0;
     trailRef.current = [startPoint];
     collisionCountRef.current = 0;
     isFinishedRef.current = false;
-    
-    setTimeout(() => {
-      if (textareaRef.current) textareaRef.current.focus();
-    }, 100);
-  };
-
-  const clearTrail = () => {
-    setTrail([turtlePos]);
-    trailRef.current = [turtlePos];
   };
 
   const formatTime = (seconds) => {
@@ -1043,7 +907,6 @@ const Tutorial = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Update isFinished ketika mencapai finish
   useEffect(() => {
     if (checkFinish(turtlePos) && !isFinished && startTime) {
       handleFinish();
@@ -1060,7 +923,7 @@ const Tutorial = () => {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <motion.button
             onClick={() => navigate('/sungai')}
@@ -1112,8 +975,8 @@ const Tutorial = () => {
         </div>
       </header>
 
-      {/* Main Content - Sama seperti sebelumnya */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Map */}
         <div className="flex-1 relative">
           <MapContainer
@@ -1270,45 +1133,6 @@ const Tutorial = () => {
                 </div>
               </Popup>
             </Marker>
-
-            {/* Marker Lokasi Sungai Martapura */}
-            {lokasiSungaiMartapura.map((lokasi, idx) => (
-              <Marker
-                key={idx}
-                position={[lokasi.lat, lokasi.lng]}
-                icon={getMarkerIcon(lokasi.Kategori_Lokasi)}
-              >
-                <Popup>
-                  <div className="min-w-[200px]">
-                    <h3 className="font-bold text-gray-800">{lokasi.Nama_Lokasi}</h3>
-                    <p className="text-sm text-gray-600">{lokasi.Alamat_Wilayah}</p>
-                    <p className="text-xs text-gray-500">Kategori: {lokasi.Kategori_Lokasi}</p>
-                    <p className="text-xs text-gray-500">Tahun: {lokasi.Tahun_Berdiri}</p>
-                    {lokasi.Deskripsi_Lokasi && (
-                      <p className="text-xs text-gray-500 mt-1">{lokasi.Deskripsi_Lokasi}</p>
-                    )}
-                    <div className="mt-2 text-xs">
-                      <span className={`px-2 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-100 text-green-800' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
-                        {lokasi.Akses_Lokasi}
-                      </span>
-                      <span className={`ml-1 px-2 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? '🚤 Bisa perahu' : '🚫 Tidak'}
-                      </span>
-                    </div>
-                    {lokasi.Foto_Lokasi && (
-                      <a
-                        href={lokasi.Foto_Lokasi}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-teal-600 underline block mt-1"
-                      >
-                        Lihat Foto
-                      </a>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
           </MapContainer>
 
           {/* Direction Indicator */}
@@ -1357,18 +1181,14 @@ const Tutorial = () => {
                 <span className="text-gray-700">Grid Peta ({gridSizeMeters} m)</span>
                 {!gridEnabled && <span className="text-xs text-gray-400">(tersembunyi)</span>}
               </div>
-              <div className="flex items-center gap-2 border-t border-gray-200 pt-2 mt-2">
-                <div className="w-6 h-6 rounded-full bg-gray-500 border-2 border-white shadow flex items-center justify-center text-xs text-white font-bold">?</div>
-                <span className="text-gray-700">Lokasi (berwarna)</span>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Control Panel - Sama seperti sebelumnya */}
-        <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
-          {/* Command Input */}
-          <div className="p-4 border-b border-gray-700">
+        {/* Control Panel - Dengan layout yang lebih terstruktur */}
+        <div className="w-[420px] bg-gray-800 border-l border-gray-700 flex flex-col h-full min-h-0">
+          {/* Command Input - fixed height */}
+          <div className="flex-shrink-0 p-4 border-b border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-gray-300">
                 <Terminal size={18} />
@@ -1383,27 +1203,59 @@ const Tutorial = () => {
               </div>
             </div>
             
-            <div className="relative">
-              <textarea
-                ref={textareaRef}
+            <div className="relative border border-gray-600 rounded-lg overflow-hidden bg-gray-900">
+              <CodeMirror
                 value={commands}
-                onChange={(e) => setCommands(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={`Contoh perintah:\nforward 100\nleft 90\nforward 50\n\n💡 Tips:\n• Enter = jalankan\n• Shift+Enter = baris baru\n• # untuk komentar`}
-                className="w-full h-44 bg-gray-900 text-green-400 font-mono text-sm p-3 rounded-lg border border-gray-600 focus:border-teal-500 focus:outline-none resize-none scrollbar-thin scrollbar-thumb-gray-600"
-                disabled={isExecuting}
-                autoFocus
-                spellCheck={false}
+                height="160px"
+                maxHeight="160px"
+                extensions={[javascript()]}
+                theme={oneDark}
+                onChange={(value) => {
+                  if (!isExecuting) {
+                    setCommands(value);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    runCommands();
+                  }
+                }}
+                autoFocus={true}
+                basicSetup={{
+                  lineNumbers: true,
+                  highlightActiveLineGutter: true,
+                  highlightSpecialChars: true,
+                  foldGutter: true,
+                  drawSelection: true,
+                  dropCursor: true,
+                  allowMultipleSelections: true,
+                  indentOnInput: true,
+                  syntaxHighlighting: true,
+                  bracketMatching: true,
+                  closeBrackets: true,
+                  autocompletion: true,
+                  rectangularSelection: true,
+                  crosshairCursor: true,
+                  highlightActiveLine: true,
+                  highlightSelectionMatches: true,
+                  closeBracketsKeymap: true,
+                  defaultKeymap: true,
+                  searchKeymap: true,
+                  historyKeymap: true,
+                  foldKeymap: true,
+                  completionKeymap: true,
+                  lintKeymap: true,
+                }}
               />
               {isExecuting && (
-                <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-gray-800/90 px-3 py-1 rounded-lg">
+                <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-gray-800/90 px-3 py-1 rounded-lg z-10">
                   <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
                   <span className="text-teal-400 text-xs font-mono">Menjalankan...</span>
                 </div>
               )}
             </div>
             
-            {/* Menampilkan jumlah perintah yang akan dijalankan */}
             <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
               <span>
                 {commands.split('\n').filter(line => line.trim() && !line.trim().startsWith('#')).length} perintah
@@ -1455,8 +1307,8 @@ const Tutorial = () => {
             </div>
           </div>
 
-          {/* Command History */}
-          <div className="flex-1 overflow-y-auto p-4">
+          {/* Command History - scrollable dengan batas */}
+          <div className="flex-1 overflow-y-auto p-4 min-h-0" style={{ maxHeight: '220px' }}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-gray-400 flex items-center gap-2">
                 <ChevronRight size={14} />
@@ -1470,38 +1322,33 @@ const Tutorial = () => {
             </div>
             
             {commandHistory.length === 0 ? (
-              <div className="text-gray-500 text-sm italic text-center py-8">
+              <div className="text-gray-500 text-sm italic text-center py-4">
                 <p>Belum ada perintah dijalankan...</p>
-                <p className="text-xs mt-2">Mulai navigasi dari START ke FINISH!</p>
+                <p className="text-xs mt-1">Mulai navigasi dari START ke FINISH!</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {commandHistory.map((item, idx) => (
                   <div 
                     key={idx}
-                    className={`p-2 rounded-lg text-sm font-mono transition-all ${
+                    className={`p-1.5 rounded-lg text-xs font-mono transition-all ${
                       item.status === 'done' ? 'bg-green-900/30 text-green-400 border border-green-700' :
                       item.status === 'error' ? 'bg-red-900/30 text-red-400 border border-red-700' :
                       'bg-amber-900/30 text-amber-400 border border-amber-700 animate-pulse'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="opacity-50 mr-2">#{item.index || idx + 1}</span>
-                      <span className="flex-1">{item.cmd}</span>
-                      <span className="text-[10px] opacity-50">
+                      <span className="opacity-50 mr-1.5 text-[10px]">#{item.index || idx + 1}</span>
+                      <span className="flex-1 truncate">{item.cmd}</span>
+                      <span className="text-[10px] opacity-50 ml-1.5">
                         {item.status === 'done' && '✅'}
                         {item.status === 'error' && '❌'}
                         {item.status === 'running' && '⏳'}
                       </span>
                     </div>
                     {item.error && (
-                      <div className="mt-1 text-[10px] text-red-300 opacity-75">
+                      <div className="mt-0.5 text-[10px] text-red-300 opacity-75 truncate">
                         {item.error}
-                      </div>
-                    )}
-                    {item.total && (
-                      <div className="mt-1 text-[10px] text-gray-500">
-                        {idx + 1} / {item.total}
                       </div>
                     )}
                   </div>
@@ -1510,84 +1357,53 @@ const Tutorial = () => {
             )}
           </div>
 
-          {/* Daftar Lokasi Sungai Martapura */}
-          <div className="p-4 border-t border-gray-700 max-h-60 overflow-y-auto">
-            <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
-              <MapPin size={16} />
-              Lokasi di Sungai Martapura ({lokasiSungaiMartapura.length})
-            </h3>
-            <div className="space-y-2 text-xs">
-              {lokasiSungaiMartapura.length === 0 ? (
-                <div className="text-gray-500 italic">Tidak ada lokasi ditemukan</div>
-              ) : (
-                lokasiSungaiMartapura.map((lokasi, idx) => (
-                  <div key={idx} className="p-2 bg-gray-800 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors">
-                    <div className="font-bold text-gray-200">{lokasi.Nama_Lokasi}</div>
-                    <div className="text-gray-400">{lokasi.Kategori_Lokasi}</div>
-                    <div className="text-gray-500 truncate">{lokasi.Alamat_Wilayah}</div>
-                    <div className="flex gap-2 mt-1">
-                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-900/50 text-green-300' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-red-900/50 text-red-300'}`}>
-                        {lokasi.Akses_Lokasi}
-                      </span>
-                      <span className={`px-1.5 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-900/50 text-blue-300' : 'bg-gray-700 text-gray-400'}`}>
-                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'Perahu' : 'Darat'}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
+          {/* Info Jejak & Grid - fixed di bawah */}
+          <div className="flex-shrink-0 p-3 bg-gray-900/50 border-t border-gray-700">
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Panjang Jejak</p>
+                <p className="text-amber-400 font-mono font-bold text-sm">{trail.length - 1} segmen</p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Total Jarak</p>
+                <p className="text-teal-400 font-mono font-bold text-sm">
+                  {(trail.length > 1 ? 
+                    (Math.sqrt(
+                      Math.pow(trail[trail.length-1][0] - trail[0][0], 2) + 
+                      Math.pow(trail[trail.length-1][1] - trail[0][1], 2)
+                    ) * 111).toFixed(2) : 0)} km
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Tabrakan</p>
+                <p className={collisionCount > 0 ? 'text-red-400 font-bold text-sm' : 'text-green-400 font-bold text-sm'}>
+                  {collisionCount > 0 ? `⚠️ ${collisionCount}x` : '✅ 0x'}
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-400">Skor</p>
+                <p className="text-purple-400 font-bold text-sm">
+                  {isFinished ? calculateScore(collisionCount) : '—'}
+                </p>
+              </div>
             </div>
-          </div>
-
-          {/* Info Jejak & Kontrol Grid */}
-          <div className="p-3 bg-gray-900/50 border-t border-gray-700 space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Panjang Jejak:</span>
-              <span className="text-amber-400 font-mono font-bold">{trail.length - 1} segmen</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Total Jarak:</span>
-              <span className="text-teal-400 font-mono font-bold">
-                {(trail.length > 1 ? 
-                  (Math.sqrt(
-                    Math.pow(trail[trail.length-1][0] - trail[0][0], 2) + 
-                    Math.pow(trail[trail.length-1][1] - trail[0][1], 2)
-                  ) * 111).toFixed(2) : 0)} km
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Tabrakan:</span>
-              <span className={collisionCount > 0 ? 'text-red-400 font-bold' : 'text-green-400 font-bold'}>
-                {collisionCount > 0 ? `⚠️ ${collisionCount}x` : '✅ 0x'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Skor:</span>
-              <span className="text-purple-400 font-bold">
-                {isFinished ? calculateScore(collisionCount) : '—'}
-              </span>
-            </div>
-            
-            <button onClick={clearTrail} className="w-full py-1 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition flex items-center justify-center gap-1">
-              <Eraser size={12} /> Hapus Jejak
-            </button>
 
             {/* Kontrol Grid */}
-            <div className="pt-2 border-t border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-gray-300 text-xs font-bold">
-                  <Grid3x3 size={14} />
+            <div className="bg-gray-800 rounded-lg p-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5 text-gray-300 text-xs font-bold">
+                  <Grid3x3 size={13} />
                   <span>KOTAK GRID</span>
                 </div>
                 <button
                   onClick={() => setGridEnabled(!gridEnabled)}
-                  className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+                  className="p-0.5 hover:bg-gray-700 rounded transition-colors"
                 >
-                  {gridEnabled ? <Eye size={14} className="text-teal-400" /> : <EyeOff size={14} className="text-gray-500" />}
+                  {gridEnabled ? <Eye size={13} className="text-teal-400" /> : <EyeOff size={13} className="text-gray-500" />}
                 </button>
               </div>
-              <div className="flex items-center gap-3">
-                <SlidersHorizontal size={14} className="text-gray-400" />
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={12} className="text-gray-400" />
                 <input
                   type="range"
                   min="200"
@@ -1601,48 +1417,36 @@ const Tutorial = () => {
                     background: gridEnabled ? '#14b8a6' : '#4b5563'
                   }}
                 />
-                <span className="text-xs text-gray-300 font-mono w-16 text-right">
+                <span className="text-xs text-gray-300 font-mono w-14 text-right">
                   {gridSizeMeters} m
                 </span>
               </div>
-              <p className="text-[10px] text-gray-500 mt-1 text-center">
+              <p className="text-[9px] text-gray-500 mt-0.5 text-center">
                 Jarak antar garis grid (200m - 1km)
               </p>
             </div>
           </div>
 
-          {/* Help */}
-          <div className="p-4 bg-gray-900 border-t border-gray-700">
-            <h4 className="text-xs font-bold text-gray-400 mb-2">PERINTAH YANG TERSEDIA:</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+          {/* Help - fixed di paling bawah */}
+          <div className="flex-shrink-0 p-3 bg-gray-900 border-t border-gray-700">
+            <h4 className="text-xs font-bold text-gray-400 mb-1.5">PERINTAH YANG TERSEDIA:</h4>
+            <div className="grid grid-cols-2 gap-1 text-xs text-gray-300">
               <div><span className="text-teal-400">forward</span> / <span className="text-teal-400">fd</span> [m]</div>
               <div><span className="text-teal-400">backward</span> / <span className="text-teal-400">bk</span> [m]</div>
               <div><span className="text-teal-400">left</span> / <span className="text-teal-400">lt</span> [°]</div>
               <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
             </div>
-            <div className="mt-2 text-xs text-gray-500">
-              <span className="text-green-400">💡</span> Keyboard:
-              <br />
-              <span className="text-gray-400">• <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[10px]">Enter</kbd> = Jalankan perintah</span>
-              <br />
-              <span className="text-gray-400">• <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[10px]">Shift+Enter</kbd> = Baris baru</span>
-              <br />
-              <span className="text-gray-400">• <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[10px]">#</kbd> = Komentar (abaikan baris)</span>
+            <div className="mt-1 text-[10px] text-gray-500">
+              <span className="text-green-400">💡</span> <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[9px]">Enter</kbd> Jalankan &nbsp;|&nbsp; <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[9px]">Shift+Enter</kbd> Baris baru &nbsp;|&nbsp; <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[9px]">#</kbd> Komentar
             </div>
-            <div className="mt-2 text-xs text-gray-500 border-t border-gray-700 pt-2">
-              <span className="text-red-400">⚠️</span> Setiap tabrakan mengurangi 5 poin (minimal 0)
-              <br />
-              <span className="text-green-400">✅</span> Skor = 100 - (tabrakan × 5), minimal 0
-              <br />
-              <span className="text-amber-400">📊</span> Path = jumlah segmen jejak
-              <br />
-              <span className="text-teal-400">🔓</span> Mode Tutorial - Skor tidak disimpan
+            <div className="mt-1 text-[10px] text-gray-500 border-t border-gray-700 pt-1">
+              <span className="text-red-400">⚠️</span> Tabrakan -5 poin &nbsp; <span className="text-green-400">✅</span> Skor: 100 - (tabrakan × 5)
             </div>
           </div>
         </div>
       </div>
 
-      {/* Result Popup - TANPA MENYIMPAN KE DATABASE */}
+      {/* Result Popup */}
       <AnimatePresence>
         {showResultPopup && (
           <motion.div
@@ -1736,7 +1540,7 @@ const Tutorial = () => {
         )}
       </AnimatePresence>
     </div>
-  )
-}
+  );
+};
 
 export default Tutorial;
