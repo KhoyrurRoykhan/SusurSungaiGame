@@ -29,13 +29,13 @@ import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'fireb
 import { auth, db } from '../config/firebase';
 
 // sungai
-import GambarSungaiBarito from "./assets/sungaibarito.jpeg";
-import GambarSungaiKuin from "./assets/sungaikuin.jpg";
-import GambarSungaiAlalak from "./assets/sungaialalak.jpg";
-import GambarSungaiAwang from "./assets/sungaiawang.jpg";
-import GambarSungaiMartapura from "./assets/sungaimartapura.jpg";
-import GambarSungaiPelambuan from "./assets/sungaipelambuan.jpg";
-import GambarTutorial from "./assets/sungaimartapura.jpg"; // Tambahkan gambar tutorial
+import GambarSungaiBarito from "./assets/Sungai Barito.jpeg";
+import GambarSungaiKuin from "./assets/Sungai Kuin.jpeg";
+import GambarSungaiAlalak from "./assets/Sungai Alalak.jpeg";
+import GambarSungaiAwang from "./assets/Sungai Awang.jpeg";
+import GambarSungaiMartapura from "./assets/Sungai Martapura.jpeg";
+import GambarSungaiPelambuan from "./assets/Sungai Pelambuan.jpeg";
+import GambarTutorial from "./assets/Sungai Martapura.jpeg"; // Tambahkan gambar tutorial
 
 // Data dasar sungai - PATH UNTUK NAVIGASI ADA DI SINI
 const baseLevelSungai = [

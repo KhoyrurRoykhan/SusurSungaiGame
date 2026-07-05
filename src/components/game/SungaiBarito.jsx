@@ -27,17 +27,13 @@ import 'leaflet/dist/leaflet.css';
 import { LayersControl } from 'react-leaflet';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
-// Import CodeMirror
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { oneDark } from '@codemirror/theme-one-dark';
 
-// Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
-// Import file GeoJSON
 import sungaiBaritoGeoJSON from './geojson/sungabarito.json';
 import pulauKembangGeoJSON from './geojson/Pulau_Kembang.json';
-// Import data lokasi sungai
 import dataSungai from './geojson/Data_Sungai.json';
 
 // Fix Leaflet default icons
@@ -49,9 +45,9 @@ L.Icon.Default.mergeOptions({
 });
 
 // Custom Kura-kura Icon
-const createTurtleIcon = (angle) => {
+const createTurtleIcon = (angle, isCollision = false) => {
   return L.divIcon({
-    className: 'custom-turtle-obj-icon',
+    className: `custom-turtle-obj-icon ${isCollision ? 'collision-effect' : ''}`,
     html: `<div style="
       width: 50px; 
       height: 50px;
@@ -70,6 +66,7 @@ const createTurtleIcon = (angle) => {
           height: 100%;
           object-fit: contain;
           filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+          ${isCollision ? 'animation: collisionFlash 0.5s ease 3;' : ''}
         "
       />
     </div>`,
@@ -255,7 +252,93 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
-// Fungsi mencari titik batas
+// ======== FUNGSI DETEKSI COLLISION DI SEPANJANG LINTASAN ========
+const checkLineCollision = (startPos, endPos, stepSize = 1) => {
+  // Jika titik awal tidak valid
+  if (!isValidPosition(startPos)) return true;
+  
+  const lat1 = startPos[0], lng1 = startPos[1];
+  const lat2 = endPos[0], lng2 = endPos[1];
+  
+  // Hitung jarak total
+  const R = 6371000;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lng2 - lng1) * Math.PI / 180;
+  
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const totalDistance = R * c;
+  
+  // Jika jarak sangat kecil, hanya cek titik akhir
+  if (totalDistance < 1) {
+    return !isValidPosition(endPos);
+  }
+  
+  // Cek di sepanjang lintasan dengan step 1 meter
+  const steps = Math.max(Math.ceil(totalDistance / stepSize), 2);
+  
+  for (let i = 1; i <= steps; i++) {
+    const fraction = i / steps;
+    const currentLat = lat1 + (lat2 - lat1) * fraction;
+    const currentLng = lng1 + (lng2 - lng1) * fraction;
+    const currentPoint = [currentLat, currentLng];
+    
+    // Jika ada titik di sepanjang lintasan yang tidak valid
+    if (!isValidPosition(currentPoint)) {
+      return true; // Ada tabrakan
+    }
+  }
+  
+  return false; // Tidak ada tabrakan
+};
+
+const findFirstCollisionPoint = (startPos, endPos, stepSize = 1) => {
+  const lat1 = startPos[0], lng1 = startPos[1];
+  const lat2 = endPos[0], lng2 = endPos[1];
+  
+  // Hitung jarak total
+  const R = 6371000;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lng2 - lng1) * Math.PI / 180;
+  
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const totalDistance = R * c;
+  
+  if (totalDistance < 1) {
+    return isValidPosition(endPos) ? null : startPos;
+  }
+  
+  const steps = Math.max(Math.ceil(totalDistance / stepSize), 2);
+  
+  let lastValid = startPos;
+  
+  for (let i = 1; i <= steps; i++) {
+    const fraction = i / steps;
+    const currentLat = lat1 + (lat2 - lat1) * fraction;
+    const currentLng = lng1 + (lng2 - lng1) * fraction;
+    const currentPoint = [currentLat, currentLng];
+    
+    if (!isValidPosition(currentPoint)) {
+      // Kembalikan titik sebelum tabrakan (titik valid terakhir)
+      return lastValid;
+    }
+    lastValid = currentPoint;
+  }
+  
+  return null; // Tidak ada tabrakan
+};
+// ======== END FUNGSI DETEKSI COLLISION ========
+
+// Fungsi mencari titik batas (untuk backward compatibility)
 const findBoundaryPoint = (start, target) => {
   const lat1 = start[0], lng1 = start[1];
   const lat2 = target[0], lng2 = target[1];
@@ -353,7 +436,6 @@ const SungaiBarito = () => {
   const obstacleRef = useRef(null);
   const editorRef = useRef(null);
   
-  // Ambil data dari state
   const gameState = location.state || {};
   const dbKey = gameState.dbKey || 'barito';
   
@@ -369,6 +451,7 @@ const SungaiBarito = () => {
   const [isFinished, setIsFinished] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [collisionCount, setCollisionCount] = useState(0);
+  const [collisionEffect, setCollisionEffect] = useState(false);
   
   // State untuk jejak perjalanan
   const [trail, setTrail] = useState([startPoint]);
@@ -429,9 +512,9 @@ const SungaiBarito = () => {
   // Update marker icon when angle changes
   useEffect(() => {
     if (markerRef.current) {
-      markerRef.current.setIcon(createTurtleIcon(turtleAngle));
+      markerRef.current.setIcon(createTurtleIcon(turtleAngle, collisionEffect));
     }
-  }, [turtleAngle]);
+  }, [turtleAngle, collisionEffect]);
 
   // Zoom ke batas sungai saat pertama kali dimuat
   useEffect(() => {
@@ -568,6 +651,30 @@ const SungaiBarito = () => {
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+  // Fungsi untuk menangani tabrakan
+  const handleCollision = async (currentPos, boundaryPos, currentCollisions, setPos) => {
+    await animateMove(currentPos, boundaryPos, (pos) => {
+      setPos(pos);
+    });
+    
+    const newCollisions = currentCollisions + 1;
+    setCollisionCount(newCollisions);
+    setCollisionEffect(true);
+    setTimeout(() => setCollisionEffect(false), 1500);
+    
+    const currentScore = calculateScore(currentCollisions);
+    const newScore = calculateScore(newCollisions);
+    
+    if (currentScore === 0) {
+      setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${newCollisions}x)`);
+    } else {
+      setAlertMsg(`⚠️ Kura-kura menabrak batas! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
+    }
+    setTimeout(() => setAlertMsg(null), 3000);
+    
+    return newCollisions;
+  };
+
   // Eksekusi perintah tunggal - menggunakan refs untuk state terbaru
   const executeCommand = async (cmd, currentPos, currentAngle, currentTrail, currentCollisions) => {
     const parts = cmd.trim().toLowerCase().split(' ');
@@ -589,29 +696,27 @@ const SungaiBarito = () => {
         }
         const targetPos = calculateNewPos(currentPos[0], currentPos[1], currentAngle, value);
         
-        if (!isValidPosition(targetPos)) {
-          const boundaryPos = findBoundaryPoint(currentPos, targetPos);
-          if (boundaryPos[0] !== currentPos[0] || boundaryPos[1] !== currentPos[1]) {
-            await animateMove(currentPos, boundaryPos, (pos) => {
-              newPos = pos;
-              setTurtlePos(pos);
-            });
-            newPos = boundaryPos;
-            newTrail = [...newTrail, boundaryPos];
+        // Cek tabrakan di sepanjang lintasan
+        const hasCollision = checkLineCollision(currentPos, targetPos);
+        
+        if (hasCollision) {
+          // Cari titik tabrakan pertama
+          const collisionPoint = findFirstCollisionPoint(currentPos, targetPos);
+          
+          if (collisionPoint && (collisionPoint[0] !== currentPos[0] || collisionPoint[1] !== currentPos[1])) {
+            // Bergerak ke titik sebelum tabrakan
+            newCollisions = await handleCollision(
+              currentPos, 
+              collisionPoint, 
+              currentCollisions,
+              (pos) => {
+                newPos = pos;
+                setTurtlePos(pos);
+              }
+            );
+            newPos = collisionPoint;
+            newTrail = [...newTrail, collisionPoint];
             setTrail(newTrail);
-            
-            newCollisions = currentCollisions + 1;
-            setCollisionCount(newCollisions);
-            
-            const currentScore = calculateScore(currentCollisions);
-            const newScore = calculateScore(newCollisions);
-            
-            if (currentScore === 0) {
-              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${newCollisions}x)`);
-            } else {
-              setAlertMsg(`⚠️ Kura-kura menabrak batas! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
-            }
-            setTimeout(() => setAlertMsg(null), 3000);
             commandError = new Error('Perintah melebihi batas wilayah');
             break;
           } else {
@@ -620,6 +725,7 @@ const SungaiBarito = () => {
           }
         }
         
+        // Tidak ada tabrakan, lanjutkan gerakan normal
         await animateMove(currentPos, targetPos, (pos) => {
           newPos = pos;
           setTurtlePos(pos);
@@ -642,29 +748,27 @@ const SungaiBarito = () => {
         }
         const backTarget = calculateNewPos(currentPos[0], currentPos[1], currentAngle + 180, value);
         
-        if (!isValidPosition(backTarget)) {
-          const boundaryPos = findBoundaryPoint(currentPos, backTarget);
-          if (boundaryPos[0] !== currentPos[0] || boundaryPos[1] !== currentPos[1]) {
-            await animateMove(currentPos, boundaryPos, (pos) => {
-              newPos = pos;
-              setTurtlePos(pos);
-            });
-            newPos = boundaryPos;
-            newTrail = [...newTrail, boundaryPos];
+        // Cek tabrakan di sepanjang lintasan
+        const hasCollision = checkLineCollision(currentPos, backTarget);
+        
+        if (hasCollision) {
+          // Cari titik tabrakan pertama
+          const collisionPoint = findFirstCollisionPoint(currentPos, backTarget);
+          
+          if (collisionPoint && (collisionPoint[0] !== currentPos[0] || collisionPoint[1] !== currentPos[1])) {
+            // Bergerak ke titik sebelum tabrakan
+            newCollisions = await handleCollision(
+              currentPos, 
+              collisionPoint, 
+              currentCollisions,
+              (pos) => {
+                newPos = pos;
+                setTurtlePos(pos);
+              }
+            );
+            newPos = collisionPoint;
+            newTrail = [...newTrail, collisionPoint];
             setTrail(newTrail);
-            
-            newCollisions = currentCollisions + 1;
-            setCollisionCount(newCollisions);
-            
-            const currentScore = calculateScore(currentCollisions);
-            const newScore = calculateScore(newCollisions);
-            
-            if (currentScore === 0) {
-              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${newCollisions}x)`);
-            } else {
-              setAlertMsg(`⚠️ Kura-kura menabrak batas! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
-            }
-            setTimeout(() => setAlertMsg(null), 3000);
             commandError = new Error('Perintah melebihi batas wilayah');
             break;
           } else {
@@ -673,6 +777,7 @@ const SungaiBarito = () => {
           }
         }
         
+        // Tidak ada tabrakan, lanjutkan gerakan normal
         await animateMove(currentPos, backTarget, (pos) => {
           newPos = pos;
           setTurtlePos(pos);
@@ -722,29 +827,27 @@ const SungaiBarito = () => {
         const gotoLng = parseFloat(parts[2]);
         const gotoPos = [gotoLat, gotoLng];
         
-        if (!isValidPosition(gotoPos)) {
-          const boundaryPos = findBoundaryPoint(currentPos, gotoPos);
-          if (boundaryPos[0] !== currentPos[0] || boundaryPos[1] !== currentPos[1]) {
-            await animateMove(currentPos, boundaryPos, (pos) => {
-              newPos = pos;
-              setTurtlePos(pos);
-            });
-            newPos = boundaryPos;
-            newTrail = [...newTrail, boundaryPos];
+        // Cek tabrakan di sepanjang lintasan
+        const hasCollision = checkLineCollision(currentPos, gotoPos);
+        
+        if (hasCollision) {
+          // Cari titik tabrakan pertama
+          const collisionPoint = findFirstCollisionPoint(currentPos, gotoPos);
+          
+          if (collisionPoint && (collisionPoint[0] !== currentPos[0] || collisionPoint[1] !== currentPos[1])) {
+            // Bergerak ke titik sebelum tabrakan
+            newCollisions = await handleCollision(
+              currentPos, 
+              collisionPoint, 
+              currentCollisions,
+              (pos) => {
+                newPos = pos;
+                setTurtlePos(pos);
+              }
+            );
+            newPos = collisionPoint;
+            newTrail = [...newTrail, collisionPoint];
             setTrail(newTrail);
-            
-            newCollisions = currentCollisions + 1;
-            setCollisionCount(newCollisions);
-            
-            const currentScore = calculateScore(currentCollisions);
-            const newScore = calculateScore(newCollisions);
-            
-            if (currentScore === 0) {
-              setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${newCollisions}x)`);
-            } else {
-              setAlertMsg(`⚠️ Kura-kura menabrak batas! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
-            }
-            setTimeout(() => setAlertMsg(null), 3000);
             commandError = new Error('Titik tujuan tidak valid');
             break;
           } else {
@@ -753,6 +856,7 @@ const SungaiBarito = () => {
           }
         }
         
+        // Tidak ada tabrakan, lanjutkan gerakan normal
         await animateMove(currentPos, gotoPos, (pos) => {
           newPos = pos;
           setTurtlePos(pos);
@@ -905,6 +1009,7 @@ const SungaiBarito = () => {
     setIsFinished(false);
     setTrail([startPoint]);
     setCollisionCount(0);
+    setCollisionEffect(false);
     setShowUpdateModal(false);
     setAlertMsg(null);
     
@@ -1164,7 +1269,7 @@ const SungaiBarito = () => {
             {/* Kura-kura */}
             <Marker 
               position={turtlePos}
-              icon={createTurtleIcon(turtleAngle)}
+              icon={createTurtleIcon(turtleAngle, collisionEffect)}
               ref={markerRef}
             >
               <Popup>
@@ -1735,6 +1840,25 @@ const SungaiBarito = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* CSS tambahan untuk animasi */}
+      <style jsx>{`
+        @keyframes collisionFlash {
+          0% { filter: drop-shadow(0 0 0 rgba(255, 0, 0, 0)); }
+          50% { filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.8)); }
+          100% { filter: drop-shadow(0 0 0 rgba(255, 0, 0, 0)); }
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+
+        .collision-effect {
+          animation: collisionFlash 0.5s ease 3;
+        }
+      `}</style>
     </div>
   );
 };
