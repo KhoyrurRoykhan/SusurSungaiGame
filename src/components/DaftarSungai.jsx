@@ -21,7 +21,8 @@ import {
   Star,
   Route,
   BookOpen,
-  GraduationCap
+  GraduationCap,
+  LogIn
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -45,7 +46,6 @@ import GambarTutorial from "./assets/Sungai Martapura.jpeg";
 // =========================
 const handleHoverSound = () => {
   try {
-    console.log('🖱️ Hover detected - playing hover sound');
     playHoverSound();
   } catch (error) {
     console.error('❌ Hover sound error:', error);
@@ -696,24 +696,46 @@ const DaftarSungai = () => {
   const [joiningRoom, setJoiningRoom] = useState(false);
   const [gameScores, setGameScores] = useState({});
   const [levelSungai, setLevelSungai] = useState(baseLevelSungai);
-  const [loadingScores, setLoadingScores] = useState(true);
+  const [loadingScores, setLoadingScores] = useState(false);
 
-  // Cek status login dan ambil data user & game_skor
+  // Cek status login dan ambil data user & game_skor (hanya jika login)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
-        navigate('/loginregister');
+        // Tidak login, tetap tampilkan halaman dengan data default
+        setUser(null);
+        setUserData(null);
+        setGameScores({});
+        // Reset level ke base (tanpa data skor)
+        setLevelSungai(baseLevelSungai.map(level => {
+          if (!level.isTutorial) {
+            return {
+              ...level,
+              skorTertinggi: 0,
+              waktuTerbaik: null,
+              dbPath: null,
+              pernahDimainkan: false,
+              status: "terbuka"
+            };
+          }
+          return level;
+        }));
+        setLoading(false);
+        setLoadingScores(false);
         return;
       }
 
+      // User login
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUser(currentUser);
           setUserData(data);
-          
           await fetchGameScores(currentUser.uid);
+        } else {
+          setUser(currentUser);
+          setUserData(null);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -724,12 +746,13 @@ const DaftarSungai = () => {
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, []);
 
   // Fetch data game_skor dari database
   const fetchGameScores = async (userId) => {
     try {
       console.log('Fetching game scores for user:', userId);
+      setLoadingScores(true);
       
       const scoreDocRef = doc(db, 'game_skor', userId);
       const scoreDoc = await getDoc(scoreDocRef);
@@ -789,10 +812,26 @@ const DaftarSungai = () => {
         
       } else {
         console.log('No game score document found for user:', userId);
+        // Set default levels
+        setLevelSungai(baseLevelSungai.map(level => {
+          if (!level.isTutorial) {
+            return {
+              ...level,
+              skorTertinggi: 0,
+              waktuTerbaik: null,
+              dbPath: null,
+              pernahDimainkan: false,
+              status: "terbuka"
+            };
+          }
+          return level;
+        }));
       }
       
     } catch (error) {
       console.error('Error fetching game scores:', error);
+    } finally {
+      setLoadingScores(false);
     }
   };
 
@@ -818,6 +857,10 @@ const DaftarSungai = () => {
 
   // Handle Join Room
   const handleJoinRoom = async (roomId) => {
+    if (!user) {
+      alert('Silakan login terlebih dahulu untuk bergabung ke room.');
+      return;
+    }
     try {
       setJoiningRoom(true);
       
@@ -881,6 +924,12 @@ const DaftarSungai = () => {
     }, 100);
   };
 
+  // Navigasi ke login
+  const handleLogin = () => {
+    playClickSound();
+    navigate('/loginregister');
+  };
+
   const handleBackToHome = () => {
     playClickSound();
     setTimeout(() => {
@@ -889,6 +938,10 @@ const DaftarSungai = () => {
   };
 
   const handleOpenJoinRoom = () => {
+    if (!user) {
+      alert('Silakan login terlebih dahulu untuk bergabung ke room.');
+      return;
+    }
     playClickSound();
     setShowJoinRoom(true);
   };
@@ -921,7 +974,7 @@ const DaftarSungai = () => {
     resumeAudio();
   };
 
-  if (loading || loadingScores) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-b from-blue-900 to-cyan-600">
         <div className="absolute inset-0">
@@ -954,7 +1007,7 @@ const DaftarSungai = () => {
       className="min-h-screen relative overflow-hidden bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500"
       onClick={handleUserInteraction}
     >
-      {/* Background Laut dengan Animasi */}
+      {/* Background Laut dengan Animasi (sama seperti sebelumnya) */}
       <div className="absolute inset-0">
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-yellow-900/30 to-transparent"></div>
         
@@ -1113,83 +1166,100 @@ const DaftarSungai = () => {
                 </div>
               </div>
 
-              {/* User Info & Room ID dengan efek glass */}
+              {/* User Info & Room ID dengan efek glass - MODIFIKASI DISINI */}
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 backdrop-blur-sm bg-white/20 px-3 py-1.5 rounded-2xl border border-white/30">
-                  <User size={16} className="text-white/80" />
-                  <span className="text-sm font-medium text-white">
-                    {userData?.name || 'Pengguna'}
-                  </span>
-                </div>
-
-                {userData?.role === 'student' && (
+                {user ? (
+                  // Jika sudah login
                   <>
-                    {userData?.room_id ? (
-                      <div className="flex items-center gap-2 backdrop-blur-sm bg-blue-500/20 px-3 py-1.5 rounded-2xl border border-blue-400/30">
-                        <Hash size={16} className="text-blue-300" />
-                        <span className="text-sm font-medium text-blue-100">
-                          Room: {userData.room_id}
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleOpenJoinRoom}
-                        onMouseEnter={handleHoverSound}
-                        className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white px-4 py-1.5 rounded-2xl text-sm font-medium transition duration-200 shadow-xl hover:shadow-2xl border border-white/30"
-                      >
-                        <DoorOpen size={16} />
-                        <span>Masuk Room</span>
-                      </button>
-                    )}
-                  </>
-                )}
+                    <div className="flex items-center gap-2 backdrop-blur-sm bg-white/20 px-3 py-1.5 rounded-2xl border border-white/30">
+                      <User size={16} className="text-white/80" />
+                      <span className="text-sm font-medium text-white">
+                        {userData?.name || 'Pengguna'}
+                      </span>
+                    </div>
 
-                <button
-                  onClick={handleLogout}
-                  onMouseEnter={handleHoverSound}
-                  className="flex items-center gap-2 backdrop-blur-sm bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-2xl text-sm font-medium transition duration-200 border border-white/30"
-                >
-                  <LogOut size={16} />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
+                    {userData?.role === 'student' && (
+                      <>
+                        {userData?.room_id ? (
+                          <div className="flex items-center gap-2 backdrop-blur-sm bg-blue-500/20 px-3 py-1.5 rounded-2xl border border-blue-400/30">
+                            <Hash size={16} className="text-blue-300" />
+                            <span className="text-sm font-medium text-blue-100">
+                              Room: {userData.room_id}
+                            </span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={handleOpenJoinRoom}
+                            onMouseEnter={handleHoverSound}
+                            className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white px-4 py-1.5 rounded-2xl text-sm font-medium transition duration-200 shadow-xl hover:shadow-2xl border border-white/30"
+                          >
+                            <DoorOpen size={16} />
+                            <span>Masuk Room</span>
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    <button
+                      onClick={handleLogout}
+                      onMouseEnter={handleHoverSound}
+                      className="flex items-center gap-2 backdrop-blur-sm bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-2xl text-sm font-medium transition duration-200 border border-white/30"
+                    >
+                      <LogOut size={16} />
+                      <span className="hidden sm:inline">Logout</span>
+                    </button>
+                  </>
+                ) : (
+                  // Jika belum login
+                  <button
+                    onClick={handleLogin}
+                    onMouseEnter={handleHoverSound}
+                    className="flex items-center gap-2 backdrop-blur-sm bg-blue-500/30 hover:bg-blue-500/50 text-white px-4 py-1.5 rounded-2xl text-sm font-medium transition duration-200 border border-white/30"
+                  >
+                    <LogIn size={16} />
+                    <span>Login / Register</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Progress Bar dengan Liquid Glass */}
-        <div className="backdrop-blur-xl bg-white/10 border-b border-white/20">
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-white/80">Progress Petualangan</span>
-                <span className="text-sm font-bold text-cyan-200">
-                  {Math.round(stats.progress.progress)}%
+        {/* Progress Bar dengan Liquid Glass - hanya tampil jika login atau ada data skor */}
+        {user && (
+          <div className="backdrop-blur-xl bg-white/10 border-b border-white/20">
+            <div className="max-w-7xl mx-auto px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-white/80">Progress Petualangan</span>
+                  <span className="text-sm font-bold text-cyan-200">
+                    {Math.round(stats.progress.progress)}%
+                  </span>
+                </div>
+                <div className="text-sm text-white/70">
+                  <span className="font-medium text-cyan-200">{stats.progress.selesai}</span>
+                  <span className="text-white/50"> dari </span>
+                  <span className="font-medium text-white/80">{stats.progress.total}</span>
+                  <span className="text-white/50"> sungai selesai</span>
+                </div>
+              </div>
+              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full transition-all duration-1000"
+                  style={{ width: `${stats.progress.progress}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-[10px] text-white/40">
+                  Target: {stats.progress.total} sungai
+                </span>
+                <span className="text-[10px] text-white/40">
+                  {stats.progress.selesai === stats.progress.total ? '🎉 Semua selesai!' : `Tersisa ${stats.progress.total - stats.progress.selesai} sungai`}
                 </span>
               </div>
-              <div className="text-sm text-white/70">
-                <span className="font-medium text-cyan-200">{stats.progress.selesai}</span>
-                <span className="text-white/50"> dari </span>
-                <span className="font-medium text-white/80">{stats.progress.total}</span>
-                <span className="text-white/50"> sungai selesai</span>
-              </div>
-            </div>
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full transition-all duration-1000"
-                style={{ width: `${stats.progress.progress}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-1">
-              <span className="text-[10px] text-white/40">
-                Target: {stats.progress.total} sungai
-              </span>
-              <span className="text-[10px] text-white/40">
-                {stats.progress.selesai === stats.progress.total ? '🎉 Semua selesai!' : `Tersisa ${stats.progress.total - stats.progress.selesai} sungai`}
-              </span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 py-8">
@@ -1278,6 +1348,11 @@ const DaftarSungai = () => {
                 <span className="flex items-center gap-1 text-white/70">
                   <Timer size={12} className="text-blue-300" /> Durasi: Waktu penyelesaian
                 </span>
+                {!user && (
+                  <span className="flex items-center gap-1 text-amber-300">
+                    <LogIn size={12} /> Login untuk menyimpan progres
+                  </span>
+                )}
               </div>
             </div>
           </motion.div>
@@ -1292,7 +1367,7 @@ const DaftarSungai = () => {
         loading={joiningRoom}
       />
 
-      {/* CSS Animations */}
+      {/* CSS Animations (sama seperti sebelumnya) */}
       <style jsx>{`
         @keyframes float {
           0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }

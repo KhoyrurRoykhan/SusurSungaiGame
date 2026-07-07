@@ -50,7 +50,6 @@ const Modal = ({ isOpen, onClose, title, children }) => {
    SPARKLE BINTANG
 ========================= */
 const Sparkle = ({ delay = 0 }) => {
-
   const randomX = Math.random() * 100;
   const randomY = Math.random() * 100;
 
@@ -61,15 +60,12 @@ const Sparkle = ({ delay = 0 }) => {
         left: `${randomX}%`,
         top: `${randomY}%`
       }}
-
       initial={{ opacity: 0, scale: 0 }}
-
       animate={{
         opacity: [0, 1, 0],
         scale: [0, 1.4, 0],
         rotate: [0, 180, 360]
       }}
-
       transition={{
         duration: 2.5,
         delay,
@@ -77,8 +73,6 @@ const Sparkle = ({ delay = 0 }) => {
         ease: "easeInOut"
       }}
     >
-
-      {/* bentuk bintang */}
       <div
         style={{
           width: "10px",
@@ -92,7 +86,6 @@ const Sparkle = ({ delay = 0 }) => {
           `
         }}
       />
-
     </motion.div>
   );
 };
@@ -126,7 +119,6 @@ const Hotspot = ({ style, onClick }) => {
    MAIN
 ========================= */
 const LandingPage = () => {
-
   const [activeModal, setActiveModal] = useState(null);
   const [user, setUser] = useState(null);
   const [userName, setUserName] = useState('');
@@ -138,12 +130,10 @@ const LandingPage = () => {
 
   // Setup background music
   useEffect(() => {
-    // Buat audio element
     audioRef.current = new Audio(panting);
     audioRef.current.loop = true;
     audioRef.current.volume = 0.2;
 
-    // Coba play audio
     const playAudio = async () => {
       try {
         await audioRef.current.play();
@@ -156,7 +146,6 @@ const LandingPage = () => {
 
     playAudio();
 
-    // Cleanup
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -165,19 +154,16 @@ const LandingPage = () => {
     };
   }, []);
 
-  // Toggle music - HANYA MATIKAN BACKGROUND MUSIC
+  // Toggle music
   const toggleMusic = () => {
-    // Play click sound effect (tetap nyala)
     playClickSound();
     
     if (audioRef.current) {
       if (isMusicPlaying) {
-        // Matikan background music
         audioRef.current.pause();
         setIsMusicPlaying(false);
         console.log('🔇 Background music muted (sound effects tetap aktif)');
       } else {
-        // Nyalakan background music
         audioRef.current.play();
         setIsMusicPlaying(true);
         console.log('🔊 Background music playing (sound effects tetap aktif)');
@@ -190,8 +176,6 @@ const LandingPage = () => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        
-        // Ambil nama dan role dari Firestore
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
@@ -233,15 +217,12 @@ const LandingPage = () => {
     }, 100);
   };
 
-  // Handle Mulai Petualangan
+  // ========== PERUBAHAN UTAMA ==========
+  // Tombol "Mulai Petualangan" SELALU mengarah ke /sungai, terlepas dari status login
   const handleStartAdventure = () => {
     playClickSound();
     setTimeout(() => {
-      if (user) {
-        navigate('/sungai');
-      } else {
-        navigate('/loginregister');
-      }
+      navigate('/sungai'); // ← langsung ke halaman daftar sungai
     }, 100);
   };
 
@@ -290,7 +271,6 @@ const LandingPage = () => {
       style={{ backgroundImage: `url(${bg_sungai})` }}
       onClick={handleUserInteraction}
     >
-
       {/* overlay */}
       <div className="absolute inset-0 bg-black/20"></div>
 
@@ -386,12 +366,10 @@ const LandingPage = () => {
 
       {/* TITLE */}
       <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
-
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
         >
-
           {/* Sapaan Selamat Datang */}
           {!loading && user && (
             <motion.div
@@ -422,7 +400,7 @@ const LandingPage = () => {
                 Selamat Datang di Susur Sungai! 🏞️
               </h2>
               <p className="text-white/80 text-sm mt-1">
-                Login untuk memulai petualanganmu
+                Login untuk menyimpan progres atau langsung mulai petualangan
               </p>
             </motion.div>
           )}
@@ -458,13 +436,14 @@ const LandingPage = () => {
             Petualangan di Kota Seribu Sungai
           </motion.p>
 
-          {/* Tombol Mulai Petualangan / Dashboard */}
+          {/* ========== TOMBOL MULAI PETUALANGAN ========== */}
+          {/* Tombol ini SELALU mengarah ke /sungai */}
           {!loading && user && userRole === 'teacher' ? (
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <motion.button
                 onClick={handleDashboard}
                 onMouseEnter={handleHover}
-                className="px-8 py-3 bg-purple-500 text-white rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
+                className="px-8 py-3 bg-purple-500 text-white rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto pointer-events-auto z-20"
                 animate={{
                   y: [0, -6, 0],
                   scale: [1, 1.05, 1]
@@ -487,7 +466,7 @@ const LandingPage = () => {
               <motion.button
                 onClick={handleStartAdventure}
                 onMouseEnter={handleHover}
-                className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
+                className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto pointer-events-auto z-20"
                 animate={{
                   y: [0, -6, 0],
                   scale: [1, 1.05, 1]
@@ -512,7 +491,7 @@ const LandingPage = () => {
             <motion.button
               onClick={handleStartAdventure}
               onMouseEnter={handleHover}
-              className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
+              className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto pointer-events-auto z-20"
               animate={{
                 y: [0, -6, 0],
                 scale: [1, 1.05, 1]
@@ -529,7 +508,7 @@ const LandingPage = () => {
               }}
             >
               <Play className="w-5 h-5" />
-              {user ? 'Mulai Petualangan' : 'Mulai Petualangan'}
+              Mulai Petualangan
             </motion.button>
           )}
 
@@ -546,7 +525,6 @@ const LandingPage = () => {
           )}
 
         </motion.div>
-
       </div>
 
       {/* FOOTER */}
