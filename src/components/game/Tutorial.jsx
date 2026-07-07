@@ -39,8 +39,10 @@ import { oneDark } from '@codemirror/theme-one-dark';
 
 // Import gambar kura-kura
 import turtleImage from './assets/kura-kura-obj.png';
-// Import file GeoJSON (sungai Martapura part 3)
-import sungaiMartapuraPart3GeoJSON from './geojson/sungaimartapurapart3.json';
+// Import file GeoJSON Siring Terbaru
+import siringGeoJSON from './siring_terbaru.json';
+// Import data lokasi sungai
+import dataSungai from './geojson/Data_Sungai.json';
 
 // Fix Leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -199,32 +201,53 @@ const MapGrid = ({ riverBounds, stepMeters = 275, enabled = true, marginDeg = 0.
   return null;
 };
 
-// Fungsi ekstrak koordinat dari GeoJSON
+// ======== FUNGSI EKSTRAK KOORDINAT DENGAN VALIDASI ========
 const extractCoordinates = (geojson) => {
-  if (geojson.features && geojson.features.length > 0) {
-    const feature = geojson.features[0];
-    if (feature.geometry.type === 'Polygon') {
-      return feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-    } else if (feature.geometry.type === 'MultiPolygon') {
-      return feature.geometry.coordinates[0][0].map(coord => [coord[1], coord[0]]);
-    }
+  if (!geojson || !geojson.features) return [];
+  
+  // Filter features yang memiliki geometry dan type Polygon
+  const polygonFeatures = geojson.features.filter(
+    feature => feature.geometry && feature.geometry.type === 'Polygon'
+  );
+  
+  if (polygonFeatures.length === 0) {
+    console.warn('Tidak ada feature Polygon yang valid di GeoJSON');
+    return [];
   }
-  return [];
+  
+  // Ambil feature polygon pertama yang valid
+  const feature = polygonFeatures[0];
+  const coordinates = feature.geometry.coordinates[0];
+  
+  // Pastikan polygon ditutup (titik pertama == titik terakhir)
+  let coords = coordinates.map(coord => [coord[1], coord[0]]);
+  
+  // Cek apakah polygon tertutup
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    // Tutup polygon dengan menambahkan titik pertama ke akhir
+    coords = [...coords, first];
+  }
+  
+  return coords;
 };
+// ======== END FUNGSI EKSTRAK KOORDINAT ========
 
-// Ekstrak koordinat sungai Martapura part 3
-const batasSungai = extractCoordinates(sungaiMartapuraPart3GeoJSON);
+// Ekstrak koordinat Siring
+const batasSungai = extractCoordinates(siringGeoJSON);
 
-// Titik Start dan Finish
-const startPoint = [-3.3121, 114.5935];
-const finishPoint = [-3.3274, 114.5945];
+// Titik Start dan Finish (disesuaikan dengan area Siring)
+const startPoint = [-3.3121282, 114.5935424];
+const finishPoint = [-3.3202235, 114.5932472];
 
 // Style polygon sungai
 const polygonStyle = {
   color: '#0ea5e9',
   weight: 3,
   opacity: 0.8,
-  fillOpacity: 0,
+  fillOpacity: 0.1,
+  fillColor: '#0ea5e9',
   dashArray: '5, 10'
 };
 
@@ -243,18 +266,21 @@ const isPointInPolygon = (point, polygon) => {
 };
 
 const isValidPosition = (point) => {
+  if (!batasSungai || batasSungai.length === 0) {
+    console.warn('Batas sungai kosong, menggunakan validasi default');
+    return true;
+  }
   return isPointInPolygon(point, batasSungai);
 };
 
 // ======== FUNGSI DETEKSI COLLISION DI SEPANJANG LINTASAN ========
 const checkLineCollision = (startPos, endPos, stepSize = 1) => {
-  // Jika titik awal tidak valid
+  if (!batasSungai || batasSungai.length === 0) return false;
   if (!isValidPosition(startPos)) return true;
   
   const lat1 = startPos[0], lng1 = startPos[1];
   const lat2 = endPos[0], lng2 = endPos[1];
   
-  // Hitung jarak total
   const R = 6371000;
   const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
@@ -267,12 +293,10 @@ const checkLineCollision = (startPos, endPos, stepSize = 1) => {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   const totalDistance = R * c;
   
-  // Jika jarak sangat kecil, hanya cek titik akhir
   if (totalDistance < 1) {
     return !isValidPosition(endPos);
   }
   
-  // Cek di sepanjang lintasan dengan step 1 meter
   const steps = Math.max(Math.ceil(totalDistance / stepSize), 2);
   
   for (let i = 1; i <= steps; i++) {
@@ -281,20 +305,20 @@ const checkLineCollision = (startPos, endPos, stepSize = 1) => {
     const currentLng = lng1 + (lng2 - lng1) * fraction;
     const currentPoint = [currentLat, currentLng];
     
-    // Jika ada titik di sepanjang lintasan yang tidak valid
     if (!isValidPosition(currentPoint)) {
-      return true; // Ada tabrakan
+      return true;
     }
   }
   
-  return false; // Tidak ada tabrakan
+  return false;
 };
 
 const findFirstCollisionPoint = (startPos, endPos, stepSize = 1) => {
+  if (!batasSungai || batasSungai.length === 0) return null;
+  
   const lat1 = startPos[0], lng1 = startPos[1];
   const lat2 = endPos[0], lng2 = endPos[1];
   
-  // Hitung jarak total
   const R = 6371000;
   const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
@@ -322,18 +346,19 @@ const findFirstCollisionPoint = (startPos, endPos, stepSize = 1) => {
     const currentPoint = [currentLat, currentLng];
     
     if (!isValidPosition(currentPoint)) {
-      // Kembalikan titik sebelum tabrakan (titik valid terakhir)
       return lastValid;
     }
     lastValid = currentPoint;
   }
   
-  return null; // Tidak ada tabrakan
+  return null;
 };
 // ======== END FUNGSI DETEKSI COLLISION ========
 
-// Fungsi mencari titik batas (untuk backward compatibility)
+// Fungsi mencari titik batas
 const findBoundaryPoint = (start, target) => {
+  if (!batasSungai || batasSungai.length === 0) return target;
+  
   const lat1 = start[0], lng1 = start[1];
   const lat2 = target[0], lng2 = target[1];
   
@@ -370,6 +395,74 @@ const findBoundaryPoint = (start, target) => {
   return lastValid;
 };
 
+// ======== FILTER LOKASI SUNGAI MARTAPURA DI SEKITAR SIRING ========
+// Definisikan area bounding box untuk filter
+const areaBounds = {
+  minLat: -3.325,
+  maxLat: -3.305,
+  minLng: 114.580,
+  maxLng: 114.600
+};
+
+// Filter lokasi Sungai Martapura yang berada di sekitar area Siring
+const lokasiSungaiMartapura = dataSungai
+  .filter(item => item.Nama_Sungai === "Sungai Martapura")
+  .map(item => {
+    const lat = parseFloat(item.Latitude.replace(/,/g, '.'));
+    const lng = parseFloat(item.Longitude.replace(/,/g, '.'));
+    return {
+      ...item,
+      lat,
+      lng
+    };
+  })
+  .filter(item => !isNaN(item.lat) && !isNaN(item.lng))
+  // Filter berdasarkan area bounding box
+  .filter(item => 
+    item.lat >= areaBounds.minLat && 
+    item.lat <= areaBounds.maxLat && 
+    item.lng >= areaBounds.minLng && 
+    item.lng <= areaBounds.maxLng
+  );
+// ======== END FILTER LOKASI ========
+
+// Fungsi untuk membuat ikon marker dengan warna berdasarkan kategori
+const getMarkerIcon = (kategori) => {
+  const colors = {
+    'Tempat Ibadah': '#3b82f6',
+    'Perdagangan': '#f59e0b',
+    'Pemerintahan dan Umum': '#8b5cf6',
+    'Infrastruktur Transportasi': '#10b981',
+    'Perusahaan dan Industri': '#ef4444',
+    'Pendidikan': '#ec4899',
+    'Kuliner': '#f97316',
+    'Tempat Wisata': '#06b6d4',
+    'Pemukiman': '#6b7280',
+    'Jembatan': '#f472b6',
+  };
+  const color = colors[kategori] || '#6b7280';
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      width: 28px; 
+      height: 28px;
+      background: ${color};
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: white;
+      font-weight: bold;
+    ">${kategori ? kategori.charAt(0) : '?'}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14],
+  });
+};
+
 // Komponen Onboarding/Welcome Popup
 const OnboardingPopup = ({ onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -378,7 +471,7 @@ const OnboardingPopup = ({ onClose }) => {
     {
       icon: <BookOpen className="text-teal-400" size={32} />,
       title: "Selamat Datang di Tutorial! 🐢",
-      description: "Halo! Selamat datang di mode tutorial. Di sini kamu akan belajar cara menavigasi kura-kura menyusuri sungai menggunakan perintah-perintah sederhana.",
+      description: "Halo! Selamat datang di mode tutorial. Di sini kamu akan belajar cara menavigasi kura-kura menyusuri kawasan Siring menggunakan perintah-perintah sederhana.",
       tips: [
         "Mode ini GRATIS dan TANPA SKOR",
         "Belajar tanpa tekanan",
@@ -399,11 +492,11 @@ const OnboardingPopup = ({ onClose }) => {
     {
       icon: <MapIcon className="text-green-400" size={32} />,
       title: "Peta & Navigasi",
-      description: "Lihat peta dengan batas sungai (garis biru putus-putus). Jaga kura-kura tetap di dalam sungai!",
+      description: "Lihat peta dengan batas area (garis biru putus-putus). Jaga kura-kura tetap di dalam area!",
       tips: [
         "🏁 START - Titik awal",
         "🚩 FINISH - Titik tujuan",
-        "⚠️ Keluar sungai = tabrakan",
+        "⚠️ Keluar area = tabrakan",
         "📊 Skor = 100 - (tabrakan × 5)"
       ]
     },
@@ -683,7 +776,7 @@ const Tutorial = () => {
     }
   }, [isExecuting, isFinished]);
 
-  // Fungsi untuk menghitung skor
+  // Fungsi untuk menghitung skor (hanya untuk tampilan)
   const calculateScore = (collisions) => {
     return Math.max(0, 100 - (collisions * 5));
   };
@@ -746,14 +839,14 @@ const Tutorial = () => {
     if (currentScore === 0) {
       setAlertMsg(`⚠️ Skor sudah 0! Tabrakan tidak mengurangi skor lagi. (Total tabrakan: ${newCollisions}x)`);
     } else {
-      setAlertMsg(`⚠️ Kura-kura keluar sungai! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
+      setAlertMsg(`⚠️ Kura-kura keluar area! Skor berkurang 5 (${currentScore} → ${newScore}) (Tabrakan #${newCollisions})`);
     }
     setTimeout(() => setAlertMsg(null), 3000);
     
     return newCollisions;
   };
 
-  // Eksekusi perintah tunggal
+  // Eksekusi perintah tunggal - dengan deteksi finish yang lebih baik
   const executeCommand = async (cmd, currentPos, currentAngle, currentTrail, currentCollisions) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
@@ -764,6 +857,7 @@ const Tutorial = () => {
     let newTrail = [...currentTrail];
     let newCollisions = currentCollisions;
     let commandError = null;
+    let reachedFinish = false;
 
     switch(action) {
       case 'forward':
@@ -774,15 +868,30 @@ const Tutorial = () => {
         }
         const targetPos = calculateNewPos(currentPos[0], currentPos[1], currentAngle, value);
         
+        // Cek apakah target melewati finish
+        const willReachFinish = checkFinish(targetPos);
+        
+        // Jika target melewati finish, kita hanya bergerak sampai finish
+        if (willReachFinish) {
+          // Bergerak ke titik finish
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
+        
         // Cek tabrakan di sepanjang lintasan
         const hasCollision = checkLineCollision(currentPos, targetPos);
         
         if (hasCollision) {
-          // Cari titik tabrakan pertama
           const collisionPoint = findFirstCollisionPoint(currentPos, targetPos);
           
           if (collisionPoint && (collisionPoint[0] !== currentPos[0] || collisionPoint[1] !== currentPos[1])) {
-            // Bergerak ke titik sebelum tabrakan
             newCollisions = await handleCollision(
               currentPos, 
               collisionPoint, 
@@ -803,7 +912,6 @@ const Tutorial = () => {
           }
         }
         
-        // Tidak ada tabrakan, lanjutkan gerakan normal
         await animateMove(currentPos, targetPos, (pos) => {
           newPos = pos;
           setTurtlePos(pos);
@@ -812,8 +920,9 @@ const Tutorial = () => {
         newTrail = [...newTrail, targetPos];
         setTrail(newTrail);
         
+        // Cek finish setelah gerakan normal
         if (checkFinish(targetPos)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -826,15 +935,27 @@ const Tutorial = () => {
         }
         const backTarget = calculateNewPos(currentPos[0], currentPos[1], currentAngle + 180, value);
         
-        // Cek tabrakan di sepanjang lintasan
+        // Cek apakah target melewati finish
+        const willReachFinish = checkFinish(backTarget);
+        
+        if (willReachFinish) {
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
+        
         const hasCollision = checkLineCollision(currentPos, backTarget);
         
         if (hasCollision) {
-          // Cari titik tabrakan pertama
           const collisionPoint = findFirstCollisionPoint(currentPos, backTarget);
           
           if (collisionPoint && (collisionPoint[0] !== currentPos[0] || collisionPoint[1] !== currentPos[1])) {
-            // Bergerak ke titik sebelum tabrakan
             newCollisions = await handleCollision(
               currentPos, 
               collisionPoint, 
@@ -855,7 +976,6 @@ const Tutorial = () => {
           }
         }
         
-        // Tidak ada tabrakan, lanjutkan gerakan normal
         await animateMove(currentPos, backTarget, (pos) => {
           newPos = pos;
           setTurtlePos(pos);
@@ -865,7 +985,7 @@ const Tutorial = () => {
         setTrail(newTrail);
         
         if (checkFinish(backTarget)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -905,15 +1025,27 @@ const Tutorial = () => {
         const gotoLng = parseFloat(parts[2]);
         const gotoPos = [gotoLat, gotoLng];
         
-        // Cek tabrakan di sepanjang lintasan
+        // Cek apakah goto melewati finish
+        const willReachFinish = checkFinish(gotoPos);
+        
+        if (willReachFinish) {
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
+        
         const hasCollision = checkLineCollision(currentPos, gotoPos);
         
         if (hasCollision) {
-          // Cari titik tabrakan pertama
           const collisionPoint = findFirstCollisionPoint(currentPos, gotoPos);
           
           if (collisionPoint && (collisionPoint[0] !== currentPos[0] || collisionPoint[1] !== currentPos[1])) {
-            // Bergerak ke titik sebelum tabrakan
             newCollisions = await handleCollision(
               currentPos, 
               collisionPoint, 
@@ -934,7 +1066,6 @@ const Tutorial = () => {
           }
         }
         
-        // Tidak ada tabrakan, lanjutkan gerakan normal
         await animateMove(currentPos, gotoPos, (pos) => {
           newPos = pos;
           setTurtlePos(pos);
@@ -944,7 +1075,7 @@ const Tutorial = () => {
         setTrail(newTrail);
         
         if (checkFinish(gotoPos)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -953,12 +1084,22 @@ const Tutorial = () => {
         commandError = new Error(`Perintah tidak dikenal: ${action}`);
     }
 
+    // Jika mencapai finish, set flag dan tampilkan popup setelah jeda
+    if (reachedFinish) {
+      setIsFinished(true);
+      // Tampilkan popup setelah jeda 1.5 detik agar animasi selesai
+      setTimeout(() => {
+        setShowResultPopup(true);
+      }, 1500);
+    }
+
     return {
       position: newPos,
       angle: newAngle,
       trail: newTrail,
       collisions: newCollisions,
-      error: commandError
+      error: commandError,
+      reachedFinish: reachedFinish
     };
   };
 
@@ -990,10 +1131,12 @@ const Tutorial = () => {
     let currentAngle = turtleAngleRef.current;
     let currentTrail = trailRef.current;
     let currentCollisions = collisionCountRef.current;
+    let finished = false;
     
     try {
       for (let i = 0; i < lines.length; i++) {
-        if (isFinishedRef.current) break;
+        // Jika sudah finish, hentikan eksekusi perintah selanjutnya
+        if (finished || isFinishedRef.current) break;
         
         const currentCmd = lines[i];
         history.push({ 
@@ -1031,10 +1174,20 @@ const Tutorial = () => {
         
         history[history.length - 1].status = 'done';
         setCommandHistory([...history]);
+        
+        // Cek apakah sudah finish
+        if (result.reachedFinish) {
+          finished = true;
+          setIsFinished(true);
+          // Popup akan ditampilkan setelah jeda di executeCommand
+          break;
+        }
+        
         await delay(100);
       }
       
-      if (!isFinishedRef.current) {
+      // Jika semua perintah selesai dan belum mencapai finish
+      if (!finished && !isFinishedRef.current) {
         setAlertMsg('✅ Semua perintah selesai dieksekusi!');
         setTimeout(() => setAlertMsg(null), 2000);
       }
@@ -1059,11 +1212,6 @@ const Tutorial = () => {
         editorRef.current.view.focus();
       }
     }, 100);
-  };
-
-  const handleFinish = () => {
-    setIsFinished(true);
-    setShowResultPopup(true);
   };
 
   const reset = () => {
@@ -1100,12 +1248,6 @@ const Tutorial = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    if (checkFinish(turtlePos) && !isFinished && startTime) {
-      handleFinish();
-    }
-  }, [turtlePos]);
-
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Onboarding Popup */}
@@ -1130,9 +1272,9 @@ const Tutorial = () => {
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <img src={turtleImage} alt="🐢" className="w-6 h-6" />
-              Sungai Martapura (Tutorial)
+              Tutorial - Kawasan Siring
             </h1>
-            <span className="text-xs text-teal-400 ml-2">📖 Mode Tutorial - Skor tidak disimpan</span>
+            {/* <span className="text-xs text-teal-400 ml-2">📖 Mode Tutorial - Skor tidak disimpan</span> */}
           </div>
         </div>
 
@@ -1156,7 +1298,7 @@ const Tutorial = () => {
             <span className="text-green-300 text-sm">Start → Finish</span>
           </div>
           <div className="bg-amber-900/50 px-3 py-1 rounded-lg border border-amber-600">
-            <span className="text-amber-300 text-xs">🔓 Gratis - Tanpa Skor</span>
+            <span className="text-amber-300 text-xs">🔓</span>
           </div>
           <button
             onClick={() => setShowOnboarding(true)}
@@ -1174,7 +1316,7 @@ const Tutorial = () => {
         <div className="flex-1 relative">
           <MapContainer
             center={turtlePos}
-            zoom={18}
+            zoom={20}
             style={{ height: '100%', width: '100%' }}
             ref={mapRef}
           >
@@ -1204,7 +1346,7 @@ const Tutorial = () => {
             />
             
             <GeoJSON 
-              data={sungaiMartapuraPart3GeoJSON}
+              data={siringGeoJSON}
               style={polygonStyle}
               ref={geojsonRef}
             />
@@ -1215,7 +1357,8 @@ const Tutorial = () => {
                 color: '#0ea5e9', 
                 weight: 3,
                 opacity: 0.8,
-                fillOpacity: 0,
+                fillOpacity: 0.1,
+                fillColor: '#0ea5e9',
                 dashArray: '5, 10'
               }}
             />
@@ -1326,6 +1469,65 @@ const Tutorial = () => {
                 </div>
               </Popup>
             </Marker>
+
+            {/* Marker Lokasi Sungai Martapura di sekitar Siring */}
+            {lokasiSungaiMartapura.map((lokasi, idx) => (
+              <Marker
+                key={idx}
+                position={[lokasi.lat, lokasi.lng]}
+                icon={getMarkerIcon(lokasi.Kategori_Lokasi)}
+              >
+                <Popup>
+                  <div className="min-w-[220px] max-w-[280px]">
+                    <h3 className="font-bold text-gray-800 text-base mb-1">{lokasi.Nama_Lokasi}</h3>
+                    <p className="text-sm text-gray-600 mb-1">{lokasi.Alamat_Wilayah}</p>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                        {lokasi.Kategori_Lokasi}
+                      </span>
+                      {lokasi.Tahun_Berdiri && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          {lokasi.Tahun_Berdiri}
+                        </span>
+                      )}
+                    </div>
+                    {lokasi.Deskripsi_Lokasi && (
+                      <p className="text-xs text-gray-500 mt-1">{lokasi.Deskripsi_Lokasi}</p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <span className={`text-xs px-2 py-0.5 rounded ${lokasi.Akses_Lokasi === 'Mudah' ? 'bg-green-100 text-green-800' : lokasi.Akses_Lokasi === 'Sedang' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                        {lokasi.Akses_Lokasi}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${lokasi.Bisa_Dicapai_Perahu === 'Ya' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? '🚤 Bisa perahu' : '🚫 Tidak'}
+                      </span>
+                    </div>
+                    {lokasi.Foto_Lokasi && (
+                      <a
+                        href={lokasi.Foto_Lokasi}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-teal-600 underline block mt-2 hover:text-teal-800"
+                      >
+                        📷 Lihat Foto
+                      </a>
+                    )}
+                    <div className="mt-2 text-[10px] text-gray-400 border-t border-gray-100 pt-1">
+                      📍 {lokasi.lat.toFixed(5)}, {lokasi.lng.toFixed(5)}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+
+            {/* Info jumlah lokasi */}
+            {lokasiSungaiMartapura.length > 0 && (
+              <div className="absolute bottom-24 left-4 bg-black/70 backdrop-blur px-3 py-1.5 rounded-lg z-[1000] border border-white/10">
+                <span className="text-white/80 text-xs">
+                  📍 {lokasiSungaiMartapura.length} lokasi ditemukan
+                </span>
+              </div>
+            )}
           </MapContainer>
 
           {/* Direction Indicator */}
@@ -1344,7 +1546,7 @@ const Tutorial = () => {
           </div>
 
           {/* Legend */}
-          <div className="absolute top-4 right-4 bg-white/95 backdrop-blur p-4 rounded-xl shadow-lg z-[1000]">
+          <div className="absolute top-4 right-4 bg-white/95 backdrop-blur p-4 rounded-xl shadow-lg z-[1000] max-h-[80vh] overflow-y-auto">
             <h4 className="font-bold text-gray-800 mb-3 text-sm">Legenda</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
@@ -1367,20 +1569,29 @@ const Tutorial = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-1 bg-sky-500 rounded" style={{ background: 'transparent', borderTop: '3px dashed #0ea5e9', height: '3px', width: '24px' }}></div>
-                <span className="text-gray-700">Batas Sungai</span>
+                <span className="text-gray-700">Batas Area</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-0 border-t border-gray-400 border-dashed" style={{ borderTop: `1px dashed ${gridEnabled ? '#9ca3af' : '#6b7280'}` }}></div>
                 <span className="text-gray-700">Grid Peta ({gridSizeMeters} m)</span>
                 {!gridEnabled && <span className="text-xs text-gray-400">(tersembunyi)</span>}
               </div>
+              <div className="flex items-center gap-2 border-t border-gray-200 pt-2 mt-2">
+                <div className="w-6 h-6 rounded-full bg-gray-500 border-2 border-white shadow flex items-center justify-center text-xs text-white font-bold">?</div>
+                <span className="text-gray-700">Lokasi (berwarna)</span>
+              </div>
+              {lokasiSungaiMartapura.length > 0 && (
+                <div className="text-[10px] text-gray-400 border-t border-gray-200 pt-2 mt-1">
+                  {lokasiSungaiMartapura.length} lokasi ditemukan
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Control Panel */}
         <div className="w-[420px] bg-gray-800 border-l border-gray-700 flex flex-col h-full min-h-0">
-          {/* Command Input - fixed height */}
+          {/* Command Input */}
           <div className="flex-shrink-0 p-4 border-b border-gray-700">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-gray-300">
@@ -1485,7 +1696,7 @@ const Tutorial = () => {
                 ) : (
                   <>
                     <Play size={18} />
-                    Jalankan Semua
+                    Jalankan
                   </>
                 )}
               </motion.button>
@@ -1502,7 +1713,7 @@ const Tutorial = () => {
             </div>
           </div>
 
-          {/* Command History - scrollable dengan batas */}
+          {/* Command History */}
           <div className="flex-1 overflow-y-auto p-4 min-h-0" style={{ maxHeight: '220px' }}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-gray-400 flex items-center gap-2">
@@ -1552,7 +1763,7 @@ const Tutorial = () => {
             )}
           </div>
 
-          {/* Info Jejak & Grid - fixed di bawah */}
+          {/* Info Jejak & Grid */}
           <div className="flex-shrink-0 p-3 bg-gray-900/50 border-t border-gray-700">
             <div className="grid grid-cols-4 gap-2 mb-3">
               <div className="bg-gray-800 rounded-lg p-2 text-center">
@@ -1622,7 +1833,7 @@ const Tutorial = () => {
             </div>
           </div>
 
-          {/* Help - fixed di paling bawah */}
+          {/* Help */}
           <div className="flex-shrink-0 p-3 bg-gray-900 border-t border-gray-700">
             <h4 className="text-xs font-bold text-gray-400 mb-1.5">PERINTAH YANG TERSEDIA:</h4>
             <div className="grid grid-cols-2 gap-1 text-xs text-gray-300">
@@ -1630,7 +1841,7 @@ const Tutorial = () => {
               <div><span className="text-teal-400">backward</span> / <span className="text-teal-400">bk</span> [m]</div>
               <div><span className="text-teal-400">left</span> / <span className="text-teal-400">lt</span> [°]</div>
               <div><span className="text-teal-400">right</span> / <span className="text-teal-400">rt</span> [°]</div>
-              <div className="col-span-2"><span className="text-teal-400">goto</span> [lat] [lng]</div>
+              {/* <div className="col-span-2"><span className="text-teal-400">goto</span> [lat] [lng]</div> */}
             </div>
             <div className="mt-1 text-[10px] text-gray-500">
               <span className="text-green-400">💡</span> <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[9px]">Enter</kbd> Jalankan &nbsp;|&nbsp; <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[9px]">Shift+Enter</kbd> Baris baru &nbsp;|&nbsp; <kbd className="px-1 py-0.5 bg-gray-700 rounded text-[9px]">#</kbd> Komentar
@@ -1736,7 +1947,7 @@ const Tutorial = () => {
         )}
       </AnimatePresence>
 
-      {/* CSS tambahan untuk animasi */}
+      {/* CSS Animasi */}
       <style jsx>{`
         @keyframes collisionFlash {
           0% { filter: drop-shadow(0 0 0 rgba(255, 0, 0, 0)); }

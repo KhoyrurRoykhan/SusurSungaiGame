@@ -202,6 +202,9 @@ const pulauKembang = extractCoordinates(pulauKembangGeoJSON);
 const startPoint = [-3.3606, 114.5229];
 const finishPoint = [-3.2819, 114.5665];
 
+// Finish detection radius
+const FINISH_RADIUS = 0.003;
+
 const polygonStyle = {
   color: '#0ea5e9',
   weight: 3,
@@ -254,13 +257,11 @@ const isPointInPolygon = (point, polygon) => {
 
 // ======== FUNGSI DETEKSI COLLISION DI SEPANJANG LINTASAN ========
 const checkLineCollision = (startPos, endPos, stepSize = 1) => {
-  // Jika titik awal tidak valid
   if (!isValidPosition(startPos)) return true;
   
   const lat1 = startPos[0], lng1 = startPos[1];
   const lat2 = endPos[0], lng2 = endPos[1];
   
-  // Hitung jarak total
   const R = 6371000;
   const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
@@ -273,12 +274,10 @@ const checkLineCollision = (startPos, endPos, stepSize = 1) => {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   const totalDistance = R * c;
   
-  // Jika jarak sangat kecil, hanya cek titik akhir
   if (totalDistance < 1) {
     return !isValidPosition(endPos);
   }
   
-  // Cek di sepanjang lintasan dengan step 1 meter
   const steps = Math.max(Math.ceil(totalDistance / stepSize), 2);
   
   for (let i = 1; i <= steps; i++) {
@@ -287,20 +286,18 @@ const checkLineCollision = (startPos, endPos, stepSize = 1) => {
     const currentLng = lng1 + (lng2 - lng1) * fraction;
     const currentPoint = [currentLat, currentLng];
     
-    // Jika ada titik di sepanjang lintasan yang tidak valid
     if (!isValidPosition(currentPoint)) {
-      return true; // Ada tabrakan
+      return true;
     }
   }
   
-  return false; // Tidak ada tabrakan
+  return false;
 };
 
 const findFirstCollisionPoint = (startPos, endPos, stepSize = 1) => {
   const lat1 = startPos[0], lng1 = startPos[1];
   const lat2 = endPos[0], lng2 = endPos[1];
   
-  // Hitung jarak total
   const R = 6371000;
   const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
@@ -328,52 +325,14 @@ const findFirstCollisionPoint = (startPos, endPos, stepSize = 1) => {
     const currentPoint = [currentLat, currentLng];
     
     if (!isValidPosition(currentPoint)) {
-      // Kembalikan titik sebelum tabrakan (titik valid terakhir)
       return lastValid;
     }
     lastValid = currentPoint;
   }
   
-  return null; // Tidak ada tabrakan
+  return null;
 };
 // ======== END FUNGSI DETEKSI COLLISION ========
-
-// Fungsi mencari titik batas (untuk backward compatibility)
-const findBoundaryPoint = (start, target) => {
-  const lat1 = start[0], lng1 = start[1];
-  const lat2 = target[0], lng2 = target[1];
-  
-  const R = 6371000;
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lng2 - lng1) * Math.PI / 180;
-  
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ/2) * Math.sin(Δλ/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const totalDistance = R * c;
-  
-  if (totalDistance === 0) return start;
-  
-  const step = 1;
-  const steps = Math.ceil(totalDistance / step);
-  let lastValid = start;
-  
-  for (let i = 1; i <= steps; i++) {
-    const fraction = i / steps;
-    const currentLat = lat1 + (lat2 - lat1) * fraction;
-    const currentLng = lng1 + (lng2 - lng1) * fraction;
-    const currentPoint = [currentLat, currentLng];
-    if (isValidPosition(currentPoint)) {
-      lastValid = currentPoint;
-    } else {
-      break;
-    }
-  }
-  return lastValid;
-};
 
 // Filter lokasi Sungai Barito
 const lokasiSungaiBarito = dataSungai
@@ -469,6 +428,9 @@ const SungaiBarito = () => {
   const [existingScore, setExistingScore] = useState(0);
   const [existingTime, setExistingTime] = useState(0);
   const [existingPath, setExistingPath] = useState(0);
+  
+  // ======== PERBAIKAN: Flag untuk mencegah popup berulang ========
+  const [hasShownPopup, setHasShownPopup] = useState(false);
 
   // Refs untuk menyimpan state terbaru di dalam fungsi async
   const turtlePosRef = useRef(turtlePos);
@@ -624,7 +586,7 @@ const SungaiBarito = () => {
       Math.pow(pos[0] - finishPoint[0], 2) + 
       Math.pow(pos[1] - finishPoint[1], 2)
     );
-    return distToFinish < 0.001;
+    return distToFinish < FINISH_RADIUS;
   };
 
   // Animasi gerak
@@ -675,7 +637,7 @@ const SungaiBarito = () => {
     return newCollisions;
   };
 
-  // Eksekusi perintah tunggal - menggunakan refs untuk state terbaru
+  // Eksekusi perintah tunggal dengan deteksi finish yang lebih baik
   const executeCommand = async (cmd, currentPos, currentAngle, currentTrail, currentCollisions) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
@@ -686,6 +648,7 @@ const SungaiBarito = () => {
     let newTrail = [...currentTrail];
     let newCollisions = currentCollisions;
     let commandError = null;
+    let reachedFinish = false;
 
     switch(action) {
       case 'forward':
@@ -695,6 +658,23 @@ const SungaiBarito = () => {
           break;
         }
         const targetPos = calculateNewPos(currentPos[0], currentPos[1], currentAngle, value);
+        
+        // Cek apakah target melewati finish
+        const willReachFinish = checkFinish(targetPos);
+        
+        // Jika target melewati finish, kita hanya bergerak sampai finish
+        if (willReachFinish) {
+          // Bergerak ke titik finish
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
         
         // Cek tabrakan di sepanjang lintasan
         const hasCollision = checkLineCollision(currentPos, targetPos);
@@ -734,8 +714,9 @@ const SungaiBarito = () => {
         newTrail = [...newTrail, targetPos];
         setTrail(newTrail);
         
+        // Cek finish setelah gerakan normal
         if (checkFinish(targetPos)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -747,6 +728,22 @@ const SungaiBarito = () => {
           break;
         }
         const backTarget = calculateNewPos(currentPos[0], currentPos[1], currentAngle + 180, value);
+        
+        // Cek apakah target melewati finish
+        const willReachFinish = checkFinish(backTarget);
+        
+        if (willReachFinish) {
+          // Bergerak ke titik finish
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
         
         // Cek tabrakan di sepanjang lintasan
         const hasCollision = checkLineCollision(currentPos, backTarget);
@@ -787,7 +784,7 @@ const SungaiBarito = () => {
         setTrail(newTrail);
         
         if (checkFinish(backTarget)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -826,6 +823,22 @@ const SungaiBarito = () => {
         const gotoLat = parseFloat(parts[1]);
         const gotoLng = parseFloat(parts[2]);
         const gotoPos = [gotoLat, gotoLng];
+        
+        // Cek apakah goto melewati finish
+        const willReachFinish = checkFinish(gotoPos);
+        
+        if (willReachFinish) {
+          // Bergerak ke titik finish
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
         
         // Cek tabrakan di sepanjang lintasan
         const hasCollision = checkLineCollision(currentPos, gotoPos);
@@ -866,7 +879,7 @@ const SungaiBarito = () => {
         setTrail(newTrail);
         
         if (checkFinish(gotoPos)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -875,16 +888,22 @@ const SungaiBarito = () => {
         commandError = new Error(`Perintah tidak dikenal: ${action}`);
     }
 
+    // Jika mencapai finish, set flag
+    if (reachedFinish) {
+      setIsFinished(true);
+    }
+
     return {
       position: newPos,
       angle: newAngle,
       trail: newTrail,
       collisions: newCollisions,
-      error: commandError
+      error: commandError,
+      reachedFinish: reachedFinish
     };
   };
 
-  // Jalankan semua perintah - MULTI-LINE SUPPORT
+  // Jalankan semua perintah dengan deteksi finish
   const runCommands = async () => {
     if (!commands.trim() || isExecuting || isFinished) return;
     
@@ -915,12 +934,15 @@ const SungaiBarito = () => {
     let currentAngle = turtleAngleRef.current;
     let currentTrail = trailRef.current;
     let currentCollisions = collisionCountRef.current;
+    let finished = false;
     
     try {
       // Eksekusi perintah secara berurutan dari atas ke bawah
       for (let i = 0; i < lines.length; i++) {
-        // Cek apakah sudah finish
-        if (isFinishedRef.current) break;
+        // Jika sudah finish, hentikan semua eksekusi
+        if (finished || isFinishedRef.current) {
+          break;
+        }
         
         const currentCmd = lines[i];
         history.push({ 
@@ -964,12 +986,19 @@ const SungaiBarito = () => {
         history[history.length - 1].status = 'done';
         setCommandHistory([...history]);
         
+        // Jika sudah finish, hentikan loop
+        if (result.reachedFinish) {
+          finished = true;
+          setIsFinished(true);
+          break;
+        }
+        
         // Delay kecil antar perintah untuk visualisasi yang lebih baik
         await delay(100);
       }
       
       // Jika semua perintah selesai dan belum mencapai finish
-      if (!isFinishedRef.current) {
+      if (!finished && !isFinishedRef.current) {
         setAlertMsg('✅ Semua perintah selesai dieksekusi!');
         setTimeout(() => setAlertMsg(null), 2000);
       }
@@ -1011,6 +1040,7 @@ const SungaiBarito = () => {
     setCollisionCount(0);
     setCollisionEffect(false);
     setShowUpdateModal(false);
+    setHasShownPopup(false); // Reset flag
     setAlertMsg(null);
     
     // Reset refs
@@ -1030,7 +1060,8 @@ const SungaiBarito = () => {
 
   // Handle finish
   const handleFinish = async () => {
-    setIsFinished(true);
+    // ======== PERBAIKAN: Set flag agar tidak dipanggil lagi ========
+    setHasShownPopup(true);
     
     const finalSkor = calculateScore(collisionCount);
     const pathSegments = trail.length - 1;
@@ -1083,16 +1114,21 @@ const SungaiBarito = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Update isFinished ketika mencapai finish
+  // ======== PERBAIKAN: useEffect untuk menampilkan popup dengan flag ========
   useEffect(() => {
-    if (checkFinish(turtlePos) && !isFinished && startTime) {
-      handleFinish();
+    // Hanya jalankan jika isFinished true, showUpdateModal false, dan belum pernah menampilkan popup
+    if (isFinished && !showUpdateModal && !hasShownPopup) {
+      // Jeda 1.5 detik agar animasi kura-kura selesai
+      const timer = setTimeout(() => {
+        handleFinish();
+      }, 1500);
+      return () => clearTimeout(timer);
     }
-  }, [turtlePos]);
+  }, [isFinished, showUpdateModal, hasShownPopup]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-900">
-      {/* Header */}
+      {/* Header - Sama seperti sebelumnya */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <motion.button
@@ -1290,7 +1326,7 @@ const SungaiBarito = () => {
               </Popup>
             </Marker>
 
-            {/* Marker Lokasi Sungai Barito - Tampil di Peta */}
+            {/* Marker Lokasi Sungai Barito */}
             {lokasiSungaiBarito.map((lokasi, idx) => (
               <Marker
                 key={idx}
@@ -1748,7 +1784,7 @@ const SungaiBarito = () => {
 
       {/* Victory Modal */}
       <AnimatePresence>
-        {isFinished && !showUpdateModal && (
+        {isFinished && !showUpdateModal && !showUpdateModal && (
           <motion.div
             className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
             initial={{ opacity: 0 }}

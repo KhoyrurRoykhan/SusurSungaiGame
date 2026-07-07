@@ -206,6 +206,9 @@ const batasSungai = extractCoordinates(sungaiAlalakGeoJSON);
 const startPoint = [-3.2814, 114.5667];
 const finishPoint = [-3.2884, 114.6008];
 
+// ======== FINISH DETECTION RADIUS - DIPERBESAR ========
+const FINISH_RADIUS = 0.0009; // Sekitar 333 meter
+
 // Style polygon sungai
 const polygonStyle = {
   color: '#0ea5e9',
@@ -451,6 +454,9 @@ const SungaiAlalak = () => {
   const [existingTime, setExistingTime] = useState(0);
   const [existingPath, setExistingPath] = useState(0);
 
+  // ======== PERBAIKAN: Flag untuk mencegah popup berulang ========
+  const [hasShownPopup, setHasShownPopup] = useState(false);
+
   // Refs untuk menyimpan state terbaru di dalam fungsi async
   const turtlePosRef = useRef(turtlePos);
   const turtleAngleRef = useRef(turtleAngle);
@@ -599,13 +605,13 @@ const SungaiAlalak = () => {
     return [lat + deltaLat, lng + deltaLng];
   };
 
-  // Cek finish
+  // ======== PERBAIKAN: Cek finish dengan radius yang lebih besar ========
   const checkFinish = (pos) => {
     const distToFinish = Math.sqrt(
       Math.pow(pos[0] - finishPoint[0], 2) + 
       Math.pow(pos[1] - finishPoint[1], 2)
     );
-    return distToFinish < 0.001;
+    return distToFinish < FINISH_RADIUS;
   };
 
   // Animasi gerak
@@ -656,7 +662,7 @@ const SungaiAlalak = () => {
     return newCollisions;
   };
 
-  // Eksekusi perintah tunggal - menggunakan refs untuk state terbaru
+  // ======== PERBAIKAN: Eksekusi perintah dengan deteksi finish ========
   const executeCommand = async (cmd, currentPos, currentAngle, currentTrail, currentCollisions) => {
     const parts = cmd.trim().toLowerCase().split(' ');
     const action = parts[0];
@@ -667,6 +673,7 @@ const SungaiAlalak = () => {
     let newTrail = [...currentTrail];
     let newCollisions = currentCollisions;
     let commandError = null;
+    let reachedFinish = false;
 
     switch(action) {
       case 'forward':
@@ -676,6 +683,23 @@ const SungaiAlalak = () => {
           break;
         }
         const targetPos = calculateNewPos(currentPos[0], currentPos[1], currentAngle, value);
+        
+        // Cek apakah target melewati finish
+        const willReachFinish = checkFinish(targetPos);
+        
+        // Jika target melewati finish, kita hanya bergerak sampai finish
+        if (willReachFinish) {
+          // Bergerak ke titik finish
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
         
         // Cek tabrakan di sepanjang lintasan
         const hasCollision = checkLineCollision(currentPos, targetPos);
@@ -715,8 +739,9 @@ const SungaiAlalak = () => {
         newTrail = [...newTrail, targetPos];
         setTrail(newTrail);
         
+        // Cek finish setelah gerakan normal
         if (checkFinish(targetPos)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -728,6 +753,22 @@ const SungaiAlalak = () => {
           break;
         }
         const backTarget = calculateNewPos(currentPos[0], currentPos[1], currentAngle + 180, value);
+        
+        // Cek apakah target melewati finish
+        const willReachFinish = checkFinish(backTarget);
+        
+        if (willReachFinish) {
+          // Bergerak ke titik finish
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
         
         // Cek tabrakan di sepanjang lintasan
         const hasCollision = checkLineCollision(currentPos, backTarget);
@@ -768,7 +809,7 @@ const SungaiAlalak = () => {
         setTrail(newTrail);
         
         if (checkFinish(backTarget)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -807,6 +848,22 @@ const SungaiAlalak = () => {
         const gotoLat = parseFloat(parts[1]);
         const gotoLng = parseFloat(parts[2]);
         const gotoPos = [gotoLat, gotoLng];
+        
+        // Cek apakah goto melewati finish
+        const willReachFinish = checkFinish(gotoPos);
+        
+        if (willReachFinish) {
+          // Bergerak ke titik finish
+          await animateMove(currentPos, finishPoint, (pos) => {
+            newPos = pos;
+            setTurtlePos(pos);
+          });
+          newPos = finishPoint;
+          newTrail = [...newTrail, finishPoint];
+          setTrail(newTrail);
+          reachedFinish = true;
+          break;
+        }
         
         // Cek tabrakan di sepanjang lintasan
         const hasCollision = checkLineCollision(currentPos, gotoPos);
@@ -847,7 +904,7 @@ const SungaiAlalak = () => {
         setTrail(newTrail);
         
         if (checkFinish(gotoPos)) {
-          setIsFinished(true);
+          reachedFinish = true;
         }
         break;
       }
@@ -856,16 +913,22 @@ const SungaiAlalak = () => {
         commandError = new Error(`Perintah tidak dikenal: ${action}`);
     }
 
+    // Jika mencapai finish, set flag
+    if (reachedFinish) {
+      setIsFinished(true);
+    }
+
     return {
       position: newPos,
       angle: newAngle,
       trail: newTrail,
       collisions: newCollisions,
-      error: commandError
+      error: commandError,
+      reachedFinish: reachedFinish
     };
   };
 
-  // Jalankan semua perintah - MULTI-LINE SUPPORT
+  // ======== PERBAIKAN: Jalankan perintah dengan deteksi finish ========
   const runCommands = async () => {
     if (!commands.trim() || isExecuting || isFinished) return;
     
@@ -896,12 +959,15 @@ const SungaiAlalak = () => {
     let currentAngle = turtleAngleRef.current;
     let currentTrail = trailRef.current;
     let currentCollisions = collisionCountRef.current;
+    let finished = false;
     
     try {
       // Eksekusi perintah secara berurutan dari atas ke bawah
       for (let i = 0; i < lines.length; i++) {
-        // Cek apakah sudah finish
-        if (isFinishedRef.current) break;
+        // Jika sudah finish, hentikan semua eksekusi
+        if (finished || isFinishedRef.current) {
+          break;
+        }
         
         const currentCmd = lines[i];
         history.push({ 
@@ -945,12 +1011,19 @@ const SungaiAlalak = () => {
         history[history.length - 1].status = 'done';
         setCommandHistory([...history]);
         
+        // Jika sudah finish, hentikan loop
+        if (result.reachedFinish) {
+          finished = true;
+          setIsFinished(true);
+          break;
+        }
+        
         // Delay kecil antar perintah untuk visualisasi yang lebih baik
         await delay(100);
       }
       
       // Jika semua perintah selesai dan belum mencapai finish
-      if (!isFinishedRef.current) {
+      if (!finished && !isFinishedRef.current) {
         setAlertMsg('✅ Semua perintah selesai dieksekusi!');
         setTimeout(() => setAlertMsg(null), 2000);
       }
@@ -992,6 +1065,7 @@ const SungaiAlalak = () => {
     setCollisionCount(0);
     setCollisionEffect(false);
     setShowUpdateModal(false);
+    setHasShownPopup(false); // Reset flag
     setAlertMsg(null);
     
     // Reset refs
@@ -1009,9 +1083,10 @@ const SungaiAlalak = () => {
     }, 100);
   };
 
-  // Handle finish
+  // ======== PERBAIKAN: Handle finish ========
   const handleFinish = async () => {
-    setIsFinished(true);
+    // Set flag agar tidak dipanggil lagi
+    setHasShownPopup(true);
     
     const finalSkor = calculateScore(collisionCount);
     const pathSegments = trail.length - 1;
@@ -1064,12 +1139,17 @@ const SungaiAlalak = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Update isFinished ketika mencapai finish
+  // ======== PERBAIKAN: useEffect untuk menampilkan popup dengan flag ========
   useEffect(() => {
-    if (checkFinish(turtlePos) && !isFinished && startTime) {
-      handleFinish();
+    // Hanya jalankan jika isFinished true, showUpdateModal false, dan belum pernah menampilkan popup
+    if (isFinished && !showUpdateModal && !hasShownPopup) {
+      // Jeda 1.5 detik agar animasi kura-kura selesai
+      const timer = setTimeout(() => {
+        handleFinish();
+      }, 1500);
+      return () => clearTimeout(timer);
     }
-  }, [turtlePos]);
+  }, [isFinished, showUpdateModal, hasShownPopup]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-900">
@@ -1623,6 +1703,7 @@ const SungaiAlalak = () => {
               <div><span className="text-teal-400">backward</span>/<span className="text-teal-400">bk</span> [m]</div>
               <div><span className="text-teal-400">left</span>/<span className="text-teal-400">lt</span> [°]</div>
               <div><span className="text-teal-400">right</span>/<span className="text-teal-400">rt</span> [°]</div>
+              <div><span className="text-teal-400">goto</span> [lat] [lng]</div>
             </div>
             <div className="mt-1 text-[9px] text-gray-500">
               <span className="text-red-400">⚠️</span> Tabrakan -5 poin &nbsp; <span className="text-green-400">✅</span> Skor: 100 - (tabrakan × 5)
