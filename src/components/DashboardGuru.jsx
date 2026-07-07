@@ -1,4 +1,4 @@
-// src/components/DashboradGuru.jsx
+// src/components/DashboardGuru.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -33,6 +33,20 @@ import {
 import { auth, db } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 
+// Import SoundManager
+import { playHoverSound, playClickSound, resumeAudio } from '../../src/utils/SoundManager';
+
+// =========================
+// FUNGSI WRAPPER UNTUK HOVER SOUND
+// =========================
+const handleHoverSound = () => {
+  try {
+    playHoverSound();
+  } catch (error) {
+    console.error('❌ Hover sound error:', error);
+  }
+};
+
 const DashboardGuru = () => {
   // State untuk data
   const [guru, setGuru] = useState(null);
@@ -50,6 +64,11 @@ const DashboardGuru = () => {
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [copiedRoomId, setCopiedRoomId] = useState(null);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
+
+  // Handler untuk resume audio context
+  const handleUserInteraction = () => {
+    resumeAudio();
+  };
 
   // Daftar game yang tersedia sesuai struktur
   const gameList = [
@@ -79,6 +98,7 @@ const DashboardGuru = () => {
 
   // Fungsi untuk kembali ke landing page
   const handleGoHome = () => {
+    playClickSound();
     window.location.href = '/';
   };
 
@@ -204,6 +224,8 @@ const DashboardGuru = () => {
   // Create Room
   const handleCreateRoom = async (e) => {
     e.preventDefault();
+    playClickSound();
+    
     if (!roomName.trim()) {
       alert('Nama ruangan harus diisi!');
       return;
@@ -254,6 +276,7 @@ const DashboardGuru = () => {
 
   // Copy Room ID
   const copyRoomId = (roomId) => {
+    playClickSound();
     navigator.clipboard.writeText(roomId);
     setCopiedRoomId(roomId);
     setTimeout(() => setCopiedRoomId(null), 2000);
@@ -261,6 +284,7 @@ const DashboardGuru = () => {
 
   // Logout
   const handleLogout = async () => {
+    playClickSound();
     try {
       await signOut(auth);
       window.location.href = '/loginregister';
@@ -392,7 +416,10 @@ const DashboardGuru = () => {
   const selectedRoom = rooms.find(r => r.roomId === selectedRoomId);
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500">
+    <div 
+      className="min-h-screen relative overflow-hidden bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500"
+      onClick={handleUserInteraction}
+    >
       {/* Background Laut dengan Animasi */}
       <div className="absolute inset-0">
         {/* Dasar laut */}
@@ -412,85 +439,80 @@ const DashboardGuru = () => {
           />
         ))}
         
-        {/* Ikan-ikan berenang */}
+        {/* Ikan-ikan berenang dari KANAN ke KIRI */}
         {[...Array(12)].map((_, i) => (
           <div
             key={`fish-${i}`}
-            className="absolute text-white/70 animate-swim"
+            className="absolute text-white/70"
             style={{
               fontSize: Math.random() * 20 + 10 + 'px',
               top: Math.random() * 70 + 10 + '%',
-              left: '-10%',
-              animationDelay: Math.random() * 10 + 's',
-              animationDuration: Math.random() * 8 + 6 + 's'
+              right: '-10%',
+              animation: `swim-right-to-left ${Math.random() * 8 + 6}s linear ${Math.random() * 10}s infinite`,
             }}
           >
             🐟
           </div>
         ))}
         
-        {/* Ikan besar */}
+        {/* Ikan besar dari KANAN ke KIRI */}
         {[...Array(4)].map((_, i) => (
           <div
             key={`big-fish-${i}`}
-            className="absolute text-white/60 animate-swim-slow"
+            className="absolute text-white/60"
             style={{
               fontSize: Math.random() * 30 + 25 + 'px',
               top: Math.random() * 60 + 20 + '%',
-              left: '-15%',
-              animationDelay: Math.random() * 15 + 's',
-              animationDuration: Math.random() * 12 + 10 + 's'
+              right: '-15%',
+              animation: `swim-right-to-left-slow ${Math.random() * 12 + 10}s linear ${Math.random() * 15}s infinite`,
             }}
           >
             🐠
           </div>
         ))}
         
-        {/* Kura-kura */}
+        {/* Kura-kura dari KANAN ke KIRI */}
         {[...Array(3)].map((_, i) => (
           <div
             key={`turtle-${i}`}
-            className="absolute text-green-400/50 animate-swim-turtle"
+            className="absolute text-green-400/50"
             style={{
               fontSize: Math.random() * 25 + 20 + 'px',
               top: Math.random() * 50 + 20 + '%',
-              left: '-20%',
-              animationDelay: Math.random() * 20 + 's',
-              animationDuration: Math.random() * 15 + 12 + 's'
+              right: '-20%',
+              animation: `swim-turtle-right-to-left ${Math.random() * 15 + 12}s ease-in-out ${Math.random() * 20}s infinite`,
             }}
           >
             🐢
           </div>
         ))}
         
-        {/* Penyu */}
+        {/* Penyu dari KANAN ke KIRI */}
         {[...Array(2)].map((_, i) => (
           <div
             key={`turtle2-${i}`}
-            className="absolute text-green-300/40 animate-swim-turtle2"
+            className="absolute text-green-300/40"
             style={{
               fontSize: Math.random() * 30 + 25 + 'px',
               top: Math.random() * 40 + 30 + '%',
-              left: '-25%',
-              animationDelay: Math.random() * 25 + 's',
-              animationDuration: Math.random() * 20 + 15 + 's'
+              right: '-25%',
+              animation: `swim-turtle2-right-to-left ${Math.random() * 20 + 15}s ease-in-out ${Math.random() * 25}s infinite`,
             }}
           >
             🐢
           </div>
         ))}
         
-        {/* Gurita */}
+        {/* Gurita dari KANAN ke KIRI */}
         {[...Array(2)].map((_, i) => (
           <div
             key={`octopus-${i}`}
-            className="absolute text-purple-400/30 animate-swim-octopus"
+            className="absolute text-purple-400/30"
             style={{
               fontSize: Math.random() * 25 + 20 + 'px',
               top: Math.random() * 60 + 20 + '%',
-              left: '-30%',
-              animationDelay: Math.random() * 30 + 's',
-              animationDuration: Math.random() * 18 + 14 + 's'
+              right: '-30%',
+              animation: `swim-octopus-right-to-left ${Math.random() * 18 + 14}s ease-in-out ${Math.random() * 30}s infinite`,
             }}
           >
             🐙
@@ -558,6 +580,7 @@ const DashboardGuru = () => {
             <div className="flex items-center gap-3 mt-4 sm:mt-0">
               <button
                 onClick={handleGoHome}
+                onMouseEnter={handleHoverSound}
                 className="flex items-center gap-2 backdrop-blur-xl bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-2xl transition duration-200 border border-white/30 shadow-lg"
               >
                 <Home size={18} />
@@ -565,7 +588,11 @@ const DashboardGuru = () => {
               </button>
               
               <button
-                onClick={() => setShowCreateRoom(true)}
+                onClick={() => {
+                  playClickSound();
+                  setShowCreateRoom(true);
+                }}
+                onMouseEnter={handleHoverSound}
                 className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white px-4 py-2 rounded-2xl transition duration-200 shadow-xl hover:shadow-2xl backdrop-blur-sm border border-white/30"
               >
                 <Plus size={18} />
@@ -573,6 +600,7 @@ const DashboardGuru = () => {
               </button>
               <button
                 onClick={handleLogout}
+                onMouseEnter={handleHoverSound}
                 className="flex items-center gap-2 backdrop-blur-xl bg-red-500/30 hover:bg-red-500/50 text-white px-4 py-2 rounded-2xl transition duration-200 border border-white/30 shadow-lg"
               >
                 <LogOut size={18} />
@@ -595,6 +623,7 @@ const DashboardGuru = () => {
                     <span className="text-sm font-medium text-white">Room ID: {selectedRoom.roomId}</span>
                     <button
                       onClick={() => copyRoomId(selectedRoom.roomId)}
+                      onMouseEnter={handleHoverSound}
                       className="ml-1 p-1 hover:bg-white/20 rounded-lg transition"
                     >
                       {copiedRoomId === selectedRoom.roomId ? (
@@ -610,7 +639,11 @@ const DashboardGuru = () => {
                 {rooms.map((room) => (
                   <button
                     key={room.id}
-                    onClick={() => setSelectedRoomId(room.roomId)}
+                    onClick={() => {
+                      playClickSound();
+                      setSelectedRoomId(room.roomId);
+                    }}
+                    onMouseEnter={handleHoverSound}
                     className={`px-4 py-2 rounded-2xl transition flex items-center gap-2 backdrop-blur-sm ${
                       selectedRoomId === room.roomId
                         ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white shadow-xl border border-white/30'
@@ -706,13 +739,18 @@ const DashboardGuru = () => {
                       placeholder="Cari nama atau NIS..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      onMouseEnter={handleHoverSound}
                       className="pl-10 pr-4 py-2 backdrop-blur-sm bg-white/20 border border-white/30 rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition w-48 sm:w-64 text-white placeholder:text-white/60"
                     />
                   </div>
                   <div className="relative">
                     <select
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
+                      onChange={(e) => {
+                        playClickSound();
+                        setSortBy(e.target.value);
+                      }}
+                      onMouseEnter={handleHoverSound}
                       className="pl-4 pr-10 py-2 backdrop-blur-sm bg-white/20 border border-white/30 rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none appearance-none text-white"
                     >
                       <option value="nama" className="text-gray-800">Sortir: Nama</option>
@@ -723,9 +761,11 @@ const DashboardGuru = () => {
                   </div>
                   <button 
                     onClick={() => {
+                      playClickSound();
                       loadAllStudents();
                       loadAllGameScores();
                     }}
+                    onMouseEnter={handleHoverSound}
                     className="p-2 backdrop-blur-sm bg-white/20 hover:bg-white/30 text-white rounded-2xl transition border border-white/30"
                   >
                     <RefreshCw size={18} />
@@ -854,7 +894,11 @@ const DashboardGuru = () => {
                             </td>
                             
                             <td className="text-center py-3 px-3">
-                              <button className="p-1.5 backdrop-blur-sm bg-white/20 hover:bg-white/30 text-white rounded-xl transition border border-white/20">
+                              <button 
+                                className="p-1.5 backdrop-blur-sm bg-white/20 hover:bg-white/30 text-white rounded-xl transition border border-white/20"
+                                onMouseEnter={handleHoverSound}
+                                onClick={() => playClickSound()}
+                              >
                                 <Eye size={16} />
                               </button>
                             </td>
@@ -887,7 +931,11 @@ const DashboardGuru = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-white">Buat Room Baru</h2>
               <button
-                onClick={() => setShowCreateRoom(false)}
+                onClick={() => {
+                  playClickSound();
+                  setShowCreateRoom(false);
+                }}
+                onMouseEnter={handleHoverSound}
                 className="p-2 hover:bg-white/20 rounded-xl transition text-white/80"
               >
                 <X size={20} />
@@ -904,6 +952,7 @@ const DashboardGuru = () => {
                     type="text"
                     value={roomName}
                     onChange={(e) => setRoomName(e.target.value)}
+                    onMouseEnter={handleHoverSound}
                     className="w-full px-4 py-2 backdrop-blur-sm bg-white/20 border border-white/30 rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60"
                     placeholder="Contoh: Kelas XII IPA 1"
                     required
@@ -917,6 +966,7 @@ const DashboardGuru = () => {
                   <textarea
                     value={roomDescription}
                     onChange={(e) => setRoomDescription(e.target.value)}
+                    onMouseEnter={handleHoverSound}
                     className="w-full px-4 py-2 backdrop-blur-sm bg-white/20 border border-white/30 rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60"
                     placeholder="Deskripsi ruangan"
                     rows="3"
@@ -932,13 +982,18 @@ const DashboardGuru = () => {
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowCreateRoom(false)}
+                  onClick={() => {
+                    playClickSound();
+                    setShowCreateRoom(false);
+                  }}
+                  onMouseEnter={handleHoverSound}
                   className="flex-1 px-4 py-2 backdrop-blur-sm bg-white/10 hover:bg-white/20 text-white rounded-2xl transition border border-white/30"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
+                  onMouseEnter={handleHoverSound}
                   disabled={creatingRoom}
                   className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-2 rounded-2xl transition disabled:opacity-50 shadow-xl"
                 >
@@ -957,38 +1012,91 @@ const DashboardGuru = () => {
           50% { transform: translateY(-30px) scale(1.2); opacity: 0.2; }
         }
         
-        @keyframes swim {
-          0% { transform: translateX(0) scaleX(1); }
-          50% { transform: translateX(calc(100vw)) scaleX(1); }
-          100% { transform: translateX(calc(200vw)) scaleX(1); }
+        @keyframes swim-right-to-left {
+          0% { 
+            transform: translateX(0);
+            opacity: 0.7;
+          }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { 
+            transform: translateX(calc(-110vw));
+            opacity: 0.7;
+          }
         }
         
-        @keyframes swim-slow {
-          0% { transform: translateX(0) scaleX(1); }
-          50% { transform: translateX(calc(100vw)) scaleX(1); }
-          100% { transform: translateX(calc(200vw)) scaleX(1); }
+        @keyframes swim-right-to-left-slow {
+          0% { 
+            transform: translateX(0);
+            opacity: 0.6;
+          }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { 
+            transform: translateX(calc(-115vw));
+            opacity: 0.6;
+          }
         }
         
-        @keyframes swim-turtle {
-          0% { transform: translateX(0) scaleX(1) translateY(0); }
-          25% { transform: translateX(calc(50vw)) scaleX(1) translateY(-20px); }
-          50% { transform: translateX(calc(100vw)) scaleX(1) translateY(0); }
-          75% { transform: translateX(calc(150vw)) scaleX(1) translateY(-30px); }
-          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(0); }
+        @keyframes swim-turtle-right-to-left {
+          0% { 
+            transform: translateX(0) translateY(0);
+            opacity: 0.5;
+          }
+          25% { 
+            transform: translateX(calc(-50vw)) translateY(-20px);
+            opacity: 1;
+          }
+          50% { 
+            transform: translateX(calc(-100vw)) translateY(0);
+            opacity: 1;
+          }
+          75% { 
+            transform: translateX(calc(-150vw)) translateY(-30px);
+            opacity: 1;
+          }
+          100% { 
+            transform: translateX(calc(-200vw)) translateY(0);
+            opacity: 0.5;
+          }
         }
         
-        @keyframes swim-turtle2 {
-          0% { transform: translateX(0) scaleX(1) translateY(0); }
-          33% { transform: translateX(calc(70vw)) scaleX(1) translateY(-25px); }
-          66% { transform: translateX(calc(140vw)) scaleX(1) translateY(0); }
-          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(-20px); }
+        @keyframes swim-turtle2-right-to-left {
+          0% { 
+            transform: translateX(0) translateY(0);
+            opacity: 0.4;
+          }
+          33% { 
+            transform: translateX(calc(-70vw)) translateY(-25px);
+            opacity: 1;
+          }
+          66% { 
+            transform: translateX(calc(-140vw)) translateY(0);
+            opacity: 1;
+          }
+          100% { 
+            transform: translateX(calc(-200vw)) translateY(-20px);
+            opacity: 0.4;
+          }
         }
         
-        @keyframes swim-octopus {
-          0% { transform: translateX(0) scaleX(1) translateY(0); }
-          30% { transform: translateX(calc(60vw)) scaleX(1) translateY(-15px); }
-          60% { transform: translateX(calc(120vw)) scaleX(1) translateY(15px); }
-          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(0); }
+        @keyframes swim-octopus-right-to-left {
+          0% { 
+            transform: translateX(0) translateY(0);
+            opacity: 0.3;
+          }
+          30% { 
+            transform: translateX(calc(-60vw)) translateY(-15px);
+            opacity: 0.8;
+          }
+          60% { 
+            transform: translateX(calc(-120vw)) translateY(15px);
+            opacity: 0.8;
+          }
+          100% { 
+            transform: translateX(calc(-200vw)) translateY(0);
+            opacity: 0.3;
+          }
         }
         
         @keyframes sway {
@@ -1008,26 +1116,6 @@ const DashboardGuru = () => {
         
         .animate-float {
           animation: float ease-in-out infinite;
-        }
-        
-        .animate-swim {
-          animation: swim linear infinite;
-        }
-        
-        .animate-swim-slow {
-          animation: swim-slow linear infinite;
-        }
-        
-        .animate-swim-turtle {
-          animation: swim-turtle ease-in-out infinite;
-        }
-        
-        .animate-swim-turtle2 {
-          animation: swim-turtle2 ease-in-out infinite;
-        }
-        
-        .animate-swim-octopus {
-          animation: swim-octopus ease-in-out infinite;
         }
         
         .animate-sway {

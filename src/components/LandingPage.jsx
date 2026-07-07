@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Turtle, Play, LogIn, LogOut, User, LayoutDashboard } from 'lucide-react';
+import { X, Turtle, Play, LogIn, LogOut, User, LayoutDashboard, Volume2, VolumeX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 import bg_sungai from './game/assets/bg_terbaru.png';
+import panting from './assets/music/landing-panting.mp3';
+import { playHoverSound, playClickSound, resumeAudio } from '../utils/SoundManager';
 
 /* =========================
    MODAL
@@ -130,7 +132,58 @@ const LandingPage = () => {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(true);
+  const audioRef = useRef(null);
   const navigate = useNavigate();
+
+  // Setup background music
+  useEffect(() => {
+    // Buat audio element
+    audioRef.current = new Audio(panting);
+    audioRef.current.loop = true;
+    audioRef.current.volume = 0.2;
+
+    // Coba play audio
+    const playAudio = async () => {
+      try {
+        await audioRef.current.play();
+        setIsMusicPlaying(true);
+      } catch (error) {
+        console.log('Audio autoplay blocked, waiting for user interaction');
+        setIsMusicPlaying(false);
+      }
+    };
+
+    playAudio();
+
+    // Cleanup
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Toggle music - HANYA MATIKAN BACKGROUND MUSIC
+  const toggleMusic = () => {
+    // Play click sound effect (tetap nyala)
+    playClickSound();
+    
+    if (audioRef.current) {
+      if (isMusicPlaying) {
+        // Matikan background music
+        audioRef.current.pause();
+        setIsMusicPlaying(false);
+        console.log('🔇 Background music muted (sound effects tetap aktif)');
+      } else {
+        // Nyalakan background music
+        audioRef.current.play();
+        setIsMusicPlaying(true);
+        console.log('🔊 Background music playing (sound effects tetap aktif)');
+      }
+    }
+  };
 
   // Cek status login
   useEffect(() => {
@@ -167,36 +220,75 @@ const LandingPage = () => {
 
   // Handle Logout
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-      setUserName('');
-      setUserRole('');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
+    playClickSound();
+    setTimeout(async () => {
+      try {
+        await signOut(auth);
+        setUser(null);
+        setUserName('');
+        setUserRole('');
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
+    }, 100);
   };
 
   // Handle Mulai Petualangan
   const handleStartAdventure = () => {
-    if (user) {
-      // Jika sudah login, arahkan ke halaman daftar sungai
-      navigate('/sungai');
-    } else {
-      // Jika belum login, arahkan ke halaman login/register
-      navigate('/loginregister');
-    }
+    playClickSound();
+    setTimeout(() => {
+      if (user) {
+        navigate('/sungai');
+      } else {
+        navigate('/loginregister');
+      }
+    }, 100);
   };
 
   // Handle Dashboard Guru
   const handleDashboard = () => {
-    navigate('/dashboard');
+    playClickSound();
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 100);
+  };
+
+  // Handle Login Navigation
+  const handleLoginNavigation = () => {
+    playClickSound();
+    setTimeout(() => {
+      navigate('/loginregister');
+    }, 100);
+  };
+
+  // Handle Modal Close
+  const handleModalClose = () => {
+    playClickSound();
+    setActiveModal(null);
+  };
+
+  // Handle Hotspot Click
+  const handleHotspotClick = (title, content) => {
+    playClickSound();
+    setActiveModal({ title, content });
+  };
+
+  // Handler untuk resume audio context
+  const handleUserInteraction = () => {
+    resumeAudio();
+  };
+
+  // Fungsi untuk hover sound dengan logging
+  const handleHover = () => {
+    console.log('🖱️ Hover detected - playing hover sound');
+    playHoverSound();
   };
 
   return (
     <div
       className="h-screen w-screen overflow-hidden relative bg-cover bg-center"
       style={{ backgroundImage: `url(${bg_sungai})` }}
+      onClick={handleUserInteraction}
     >
 
       {/* overlay */}
@@ -221,29 +313,33 @@ const LandingPage = () => {
       {/* HOTSPOT MONYET */}
       <Hotspot
         style={{ left: "5%", top: "48%", width: "180px", height: "180px" }}
-        onClick={() =>
-          setActiveModal({
-            title: "Pulau Kembang",
-            content:
-              "Habitat bekantan yang menjadi ikon wisata Kalimantan Selatan.",
-          })
-        }
+        onClick={() => handleHotspotClick(
+          "Pulau Kembang",
+          "Habitat bekantan yang menjadi ikon wisata Kalimantan Selatan."
+        )}
       />
 
       {/* HOTSPOT MENARA */}
       <Hotspot
         style={{ right: "8%", top: "28%", width: "180px", height: "220px" }}
-        onClick={() =>
-          setActiveModal({
-            title: "Menara Pandang",
-            content:
-              "Salah satu ikon Kota Banjarmasin dengan pemandangan sungai dari atas.",
-          })
-        }
+        onClick={() => handleHotspotClick(
+          "Menara Pandang",
+          "Salah satu ikon Kota Banjarmasin dengan pemandangan sungai dari atas."
+        )}
       />
 
-      {/* HEADER - Login/Logout Button */}
-      <div className="absolute top-4 right-4 z-30">
+      {/* HEADER - Login/Logout Button & Music Control */}
+      <div className="absolute top-4 right-4 z-30 flex items-center gap-3">
+        {/* Music Control Button */}
+        <button
+          onClick={toggleMusic}
+          onMouseEnter={handleHover}
+          className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-full backdrop-blur-md border border-white/30 transition duration-200"
+          title={isMusicPlaying ? "Mute background music" : "Play background music"}
+        >
+          {isMusicPlaying ? <Volume2 size={20} /> : <VolumeX size={20} />}
+        </button>
+
         {!loading && (
           user ? (
             <div className="flex items-center gap-3">
@@ -258,6 +354,7 @@ const LandingPage = () => {
               {userRole === 'teacher' && (
                 <button
                   onClick={handleDashboard}
+                  onMouseEnter={handleHover}
                   className="flex items-center gap-2 bg-purple-500/80 hover:bg-purple-600/80 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md border border-white/30 transition duration-200"
                 >
                   <LayoutDashboard size={16} />
@@ -267,6 +364,7 @@ const LandingPage = () => {
               
               <button
                 onClick={handleLogout}
+                onMouseEnter={handleHover}
                 className="flex items-center gap-2 bg-red-500/80 hover:bg-red-600/80 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md border border-white/30 transition duration-200"
               >
                 <LogOut size={16} />
@@ -275,7 +373,8 @@ const LandingPage = () => {
             </div>
           ) : (
             <button
-              onClick={() => navigate('/loginregister')}
+              onClick={handleLoginNavigation}
+              onMouseEnter={handleHover}
               className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-md border border-white/30 transition duration-200"
             >
               <LogIn size={16} />
@@ -364,6 +463,7 @@ const LandingPage = () => {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <motion.button
                 onClick={handleDashboard}
+                onMouseEnter={handleHover}
                 className="px-8 py-3 bg-purple-500 text-white rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
                 animate={{
                   y: [0, -6, 0],
@@ -386,6 +486,7 @@ const LandingPage = () => {
               
               <motion.button
                 onClick={handleStartAdventure}
+                onMouseEnter={handleHover}
                 className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
                 animate={{
                   y: [0, -6, 0],
@@ -410,6 +511,7 @@ const LandingPage = () => {
           ) : (
             <motion.button
               onClick={handleStartAdventure}
+              onMouseEnter={handleHover}
               className="px-8 py-3 bg-amber-400 text-amber-900 rounded-full font-bold flex items-center gap-2 shadow-lg mx-auto"
               animate={{
                 y: [0, -6, 0],
@@ -455,7 +557,7 @@ const LandingPage = () => {
       {/* MODAL */}
       <Modal
         isOpen={activeModal !== null}
-        onClose={() => setActiveModal(null)}
+        onClose={handleModalClose}
         title={activeModal?.title || ''}
       >
         <p className="text-gray-600">{activeModal?.content}</p>

@@ -1,5 +1,5 @@
 // src/components/LoginRegister.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, memo } from 'react';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -13,12 +13,255 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
+// Import SoundManager
+import { playHoverSound, playClickSound, resumeAudio } from '../../src/utils/SoundManager';
+
+// =========================
+// FUNGSI WRAPPER UNTUK HOVER SOUND
+// =========================
+const handleHoverSound = () => {
+  try {
+    playHoverSound();
+  } catch (error) {
+    console.error('❌ Hover sound error:', error);
+  }
+};
+
+// Memoized input component to prevent re-renders
+const FormInput = memo(({ 
+  label, 
+  name, 
+  value, 
+  onChange, 
+  error, 
+  type = 'text', 
+  placeholder,
+  required = false 
+}) => {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-white/90 mb-1.5">
+        {label} {required && <span className="text-red-300">*</span>}
+      </label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onMouseEnter={handleHoverSound}
+        className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
+          error ? 'border-red-400/50' : 'border-white/30'
+        }`}
+        placeholder={placeholder}
+      />
+      {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
+    </div>
+  );
+});
+
+FormInput.displayName = 'FormInput';
+
+// Memoized background animations component
+const BackgroundAnimations = memo(() => {
+  // Use useMemo for static elements
+  const seaweeds = useMemo(() => [...Array(15)].map((_, i) => ({
+    id: `seaweed-${i}`,
+    height: Math.random() * 60 + 30,
+    left: Math.random() * 100,
+    delay: Math.random() * 2,
+    duration: Math.random() * 2 + 1
+  })), []);
+
+  const fish = useMemo(() => [...Array(12)].map((_, i) => ({
+    id: `fish-${i}`,
+    size: Math.random() * 20 + 10,
+    top: Math.random() * 70 + 10,
+    delay: Math.random() * 10,
+    duration: Math.random() * 8 + 6,
+  })), []);
+
+  const bigFish = useMemo(() => [...Array(4)].map((_, i) => ({
+    id: `big-fish-${i}`,
+    size: Math.random() * 30 + 25,
+    top: Math.random() * 60 + 20,
+    delay: Math.random() * 15,
+    duration: Math.random() * 12 + 10,
+  })), []);
+
+  const turtles = useMemo(() => [...Array(3)].map((_, i) => ({
+    id: `turtle-${i}`,
+    size: Math.random() * 25 + 20,
+    top: Math.random() * 50 + 20,
+    delay: Math.random() * 20,
+    duration: Math.random() * 15 + 12,
+  })), []);
+
+  const turtles2 = useMemo(() => [...Array(2)].map((_, i) => ({
+    id: `turtle2-${i}`,
+    size: Math.random() * 30 + 25,
+    top: Math.random() * 40 + 30,
+    delay: Math.random() * 25,
+    duration: Math.random() * 20 + 15,
+  })), []);
+
+  const octopuses = useMemo(() => [...Array(2)].map((_, i) => ({
+    id: `octopus-${i}`,
+    size: Math.random() * 25 + 20,
+    top: Math.random() * 60 + 20,
+    delay: Math.random() * 30,
+    duration: Math.random() * 18 + 14,
+  })), []);
+
+  const starfish = useMemo(() => [...Array(5)].map((_, i) => ({
+    id: `starfish-${i}`,
+    size: Math.random() * 15 + 10,
+    bottom: Math.random() * 20 + 10,
+    left: Math.random() * 100,
+    delay: Math.random() * 2
+  })), []);
+
+  const bubbles = useMemo(() => [...Array(20)].map((_, i) => ({
+    id: `bubble-${i}`,
+    size: Math.random() * 15 + 3,
+    left: Math.random() * 100,
+    top: Math.random() * 100,
+    delay: Math.random() * 8,
+    duration: Math.random() * 5 + 3
+  })), []);
+
+  return (
+    <div className="absolute inset-0">
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-yellow-900/30 to-transparent"></div>
+      
+      {seaweeds.map((item) => (
+        <div
+          key={item.id}
+          className="absolute bottom-0 w-1 bg-green-800/40 rounded-full origin-bottom animate-sway"
+          style={{
+            height: item.height + 'px',
+            left: item.left + '%',
+            animationDelay: item.delay + 's',
+            animationDuration: item.duration + 's'
+          }}
+        />
+      ))}
+      
+      {fish.map((item) => (
+        <div
+          key={item.id}
+          className="absolute text-white/70"
+          style={{
+            fontSize: item.size + 'px',
+            top: item.top + '%',
+            right: '-10%',
+            animation: `swim-right-to-left ${item.duration}s linear ${item.delay}s infinite`,
+          }}
+        >
+          🐟
+        </div>
+      ))}
+      
+      {bigFish.map((item) => (
+        <div
+          key={item.id}
+          className="absolute text-white/60"
+          style={{
+            fontSize: item.size + 'px',
+            top: item.top + '%',
+            right: '-15%',
+            animation: `swim-right-to-left-slow ${item.duration}s linear ${item.delay}s infinite`,
+          }}
+        >
+          🐠
+        </div>
+      ))}
+      
+      {turtles.map((item) => (
+        <div
+          key={item.id}
+          className="absolute text-green-400/50"
+          style={{
+            fontSize: item.size + 'px',
+            top: item.top + '%',
+            right: '-20%',
+            animation: `swim-turtle-right-to-left ${item.duration}s ease-in-out ${item.delay}s infinite`,
+          }}
+        >
+          🐢
+        </div>
+      ))}
+      
+      {turtles2.map((item) => (
+        <div
+          key={item.id}
+          className="absolute text-green-300/40"
+          style={{
+            fontSize: item.size + 'px',
+            top: item.top + '%',
+            right: '-25%',
+            animation: `swim-turtle2-right-to-left ${item.duration}s ease-in-out ${item.delay}s infinite`,
+          }}
+        >
+          🐢
+        </div>
+      ))}
+      
+      {octopuses.map((item) => (
+        <div
+          key={item.id}
+          className="absolute text-purple-400/30"
+          style={{
+            fontSize: item.size + 'px',
+            top: item.top + '%',
+            right: '-30%',
+            animation: `swim-octopus-right-to-left ${item.duration}s ease-in-out ${item.delay}s infinite`,
+          }}
+        >
+          🐙
+        </div>
+      ))}
+      
+      {starfish.map((item) => (
+        <div
+          key={item.id}
+          className="absolute text-yellow-400/30"
+          style={{
+            fontSize: item.size + 'px',
+            bottom: item.bottom + '%',
+            left: item.left + '%',
+            animation: 'pulse 2s ease-in-out infinite',
+            animationDelay: item.delay + 's'
+          }}
+        >
+          ⭐
+        </div>
+      ))}
+      
+      {bubbles.map((item) => (
+        <div
+          key={item.id}
+          className="absolute rounded-full bg-white/10 animate-float"
+          style={{
+            width: item.size + 'px',
+            height: item.size + 'px',
+            left: item.left + '%',
+            top: item.top + '%',
+            animationDelay: item.delay + 's',
+            animationDuration: item.duration + 's'
+          }}
+        />
+      ))}
+      
+      <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent"></div>
+    </div>
+  );
+});
+
+BackgroundAnimations.displayName = 'BackgroundAnimations';
+
 const LoginRegister = () => {
-  // State untuk toggle tab Login / Register
   const [isLogin, setIsLogin] = useState(true);
-  // State untuk peran (teacher / student)
   const [role, setRole] = useState('teacher');
-  // State untuk form data
   const [formData, setFormData] = useState({
     name: '',
     nip: '',
@@ -27,39 +270,53 @@ const LoginRegister = () => {
     password: '',
     confirmPassword: '',
   });
-  // State untuk pesan error
   const [errors, setErrors] = useState({});
-  // State untuk loading
   const [loading, setLoading] = useState(false);
 
-  // Handler perubahan input
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    // Hapus error untuk field yang sedang diubah
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: '' }));
-    }
-    // Hapus error general
-    if (errors.general) {
-      setErrors((prev) => ({ ...prev, general: '' }));
-    }
+  // Handler untuk resume audio context
+  const handleUserInteraction = () => {
+    resumeAudio();
   };
 
-  // Validasi form
-  const validateForm = () => {
+  // Optimized handler with useCallback
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Debounced error clearing
+    if (errors[name] || errors.general) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: '',
+        general: prev.general ? '' : prev.general
+      }));
+    }
+  }, [errors]);
+
+  // DEFINE resetForm FIRST before using it
+  const resetForm = useCallback(() => {
+    setFormData({ 
+      name: '',
+      nip: '', 
+      nis: '', 
+      email: '', 
+      password: '',
+      confirmPassword: ''
+    });
+    setErrors({});
+  }, []);
+
+  const validateForm = useCallback(() => {
     const newErrors = {};
     const { name, nip, nis, email, password, confirmPassword } = formData;
 
     if (isLogin) {
-      // Validasi Login
       if (!email) newErrors.email = 'Email wajib diisi';
       else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Format email tidak valid';
       
       if (!password) newErrors.password = 'Password wajib diisi';
       else if (password.length < 6) newErrors.password = 'Password minimal 6 karakter';
     } else {
-      // Validasi Register
       if (!name) newErrors.name = 'Nama lengkap wajib diisi';
       
       if (role === 'teacher') {
@@ -82,95 +339,38 @@ const LoginRegister = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData, isLogin, role]);
 
-  // Initialize game scores for student
-  const initializeGameScores = (studentId, studentName) => {
-    const gameData = {
+  const initializeGameScores = useCallback((studentId, studentName) => {
+    return {
       id_student: studentId,
       student_name: studentName,
-      // Sungai Barito
-      barito: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      // Sungai Alalak
-      alalak: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      alalak_part2: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      // Sungai Awang
-      awang: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      // Sungai Martapura
-      martapura: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      martapura_part2: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      martapura_part3: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      martapura_part4: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      // Sungai Pelambuan
-      pelambuan: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      // Sungai Kuin
-      kuin: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      kuin_part2: {
-        time: null,
-        path: null,
-        skor: 0
-      },
-      kuin_part3: {
-        time: null,
-        path: null,
-        skor: 0
-      },
+      barito: { time: null, path: null, skor: 0 },
+      alalak: { time: null, path: null, skor: 0 },
+      alalak_part2: { time: null, path: null, skor: 0 },
+      awang: { time: null, path: null, skor: 0 },
+      martapura: { time: null, path: null, skor: 0 },
+      martapura_part2: { time: null, path: null, skor: 0 },
+      martapura_part3: { time: null, path: null, skor: 0 },
+      martapura_part4: { time: null, path: null, skor: 0 },
+      pelambuan: { time: null, path: null, skor: 0 },
+      kuin: { time: null, path: null, skor: 0 },
+      kuin_part2: { time: null, path: null, skor: 0 },
+      kuin_part3: { time: null, path: null, skor: 0 },
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
+  }, []);
 
-    return gameData;
-  };
-
-  // Submit form
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
+    playClickSound(); // Click sound
+    
     if (!validateForm()) return;
 
     setLoading(true);
     try {
       if (isLogin) {
-        // ============ LOGIN ============
         const userCredential = await signInWithEmailAndPassword(
           auth, 
           formData.email, 
@@ -178,14 +378,12 @@ const LoginRegister = () => {
         );
         const user = userCredential.user;
         
-        // Ambil data user dari Firestore
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
           console.log('Login berhasil:', userData);
           
-          // Redirect berdasarkan role
           if (userData.role === 'teacher') {
             alert(`Selamat datang, ${userData.name || 'Guru'}!`);
             window.location.href = '/dashboard';
@@ -197,8 +395,6 @@ const LoginRegister = () => {
           throw new Error('Data user tidak ditemukan');
         }
       } else {
-        // ============ REGISTER ============
-        // 1. Buat akun di Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(
           auth, 
           formData.email, 
@@ -206,34 +402,26 @@ const LoginRegister = () => {
         );
         const user = userCredential.user;
         
-        // 2. Update profil dengan nama
         await updateProfile(user, {
           displayName: formData.name
         });
         
-        // 3. Simpan data ke Firestore
         const userData = {
           uid: user.uid,
           name: formData.name,
           email: formData.email,
           role: role,
-          // Teacher fields
           nip: role === 'teacher' ? formData.nip : null,
-          // Student fields
           nis: role === 'student' ? formData.nis : null,
-          // Room ID akan diisi oleh guru di dashboard (kosong saat register)
           room_id: null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         };
         
-        // Simpan ke koleksi 'users'
         await setDoc(doc(db, 'users', user.uid), userData);
         
-        // 4. Jika role adalah student, buatkan game_skor
         if (role === 'student') {
           const gameScores = initializeGameScores(user.uid, formData.name);
-          // Simpan ke koleksi 'game_skor' dengan ID = UID student
           await setDoc(doc(db, 'game_skor', user.uid), gameScores);
           console.log('Game scores initialized for student:', user.uid);
         }
@@ -241,14 +429,12 @@ const LoginRegister = () => {
         console.log('Registrasi berhasil:', userData);
         alert('Pendaftaran berhasil! Silakan login untuk melanjutkan.');
         
-        // Reset form dan pindah ke tab Login
         resetForm();
         setIsLogin(true);
       }
     } catch (error) {
       console.error('Error:', error);
       
-      // Handle error Firebase
       let errorMessage = 'Terjadi kesalahan. Silakan coba lagi.';
       switch (error.code) {
         case 'auth/email-already-in-use':
@@ -276,184 +462,34 @@ const LoginRegister = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData, isLogin, role, validateForm, initializeGameScores, resetForm]);
 
-  // Reset form
-  const resetForm = () => {
-    setFormData({ 
-      name: '',
-      nip: '', 
-      nis: '', 
-      email: '', 
-      password: '',
-      confirmPassword: ''
-    });
-    setErrors({});
-  };
-
-  const handleTabChange = (mode) => {
+  const handleTabChange = useCallback((mode) => {
+    playClickSound(); // Click sound
     setIsLogin(mode);
     resetForm();
-  };
+  }, [resetForm]);
 
-  const handleRoleChange = (newRole) => {
+  const handleRoleChange = useCallback((newRole) => {
+    playClickSound(); // Click sound
     setRole(newRole);
-    // Reset field yang tidak diperlukan
     setFormData(prev => ({
       ...prev,
       nip: '',
       nis: ''
     }));
     setErrors({});
-  };
+  }, []);
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500">
-      {/* Background Laut dengan Animasi */}
-      <div className="absolute inset-0">
-        {/* Dasar laut */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-yellow-900/30 to-transparent"></div>
-        
-        {/* Rumput laut bergoyang */}
-        {[...Array(15)].map((_, i) => (
-          <div
-            key={`seaweed-${i}`}
-            className="absolute bottom-0 w-1 bg-green-800/40 rounded-full origin-bottom animate-sway"
-            style={{
-              height: Math.random() * 60 + 30 + 'px',
-              left: Math.random() * 100 + '%',
-              animationDelay: Math.random() * 2 + 's',
-              animationDuration: Math.random() * 2 + 1 + 's'
-            }}
-          />
-        ))}
-        
-        {/* Ikan-ikan berenang */}
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={`fish-${i}`}
-            className="absolute text-white/70 animate-swim"
-            style={{
-              fontSize: Math.random() * 20 + 10 + 'px',
-              top: Math.random() * 70 + 10 + '%',
-              left: '-10%',
-              animationDelay: Math.random() * 10 + 's',
-              animationDuration: Math.random() * 8 + 6 + 's'
-            }}
-          >
-            🐟
-          </div>
-        ))}
-        
-        {/* Ikan besar */}
-        {[...Array(4)].map((_, i) => (
-          <div
-            key={`big-fish-${i}`}
-            className="absolute text-white/60 animate-swim-slow"
-            style={{
-              fontSize: Math.random() * 30 + 25 + 'px',
-              top: Math.random() * 60 + 20 + '%',
-              left: '-15%',
-              animationDelay: Math.random() * 15 + 's',
-              animationDuration: Math.random() * 12 + 10 + 's'
-            }}
-          >
-            🐠
-          </div>
-        ))}
-        
-        {/* Kura-kura */}
-        {[...Array(3)].map((_, i) => (
-          <div
-            key={`turtle-${i}`}
-            className="absolute text-green-400/50 animate-swim-turtle"
-            style={{
-              fontSize: Math.random() * 25 + 20 + 'px',
-              top: Math.random() * 50 + 20 + '%',
-              left: '-20%',
-              animationDelay: Math.random() * 20 + 's',
-              animationDuration: Math.random() * 15 + 12 + 's'
-            }}
-          >
-            🐢
-          </div>
-        ))}
-        
-        {/* Penyu */}
-        {[...Array(2)].map((_, i) => (
-          <div
-            key={`turtle2-${i}`}
-            className="absolute text-green-300/40 animate-swim-turtle2"
-            style={{
-              fontSize: Math.random() * 30 + 25 + 'px',
-              top: Math.random() * 40 + 30 + '%',
-              left: '-25%',
-              animationDelay: Math.random() * 25 + 's',
-              animationDuration: Math.random() * 20 + 15 + 's'
-            }}
-          >
-            🐢
-          </div>
-        ))}
-        
-        {/* Gurita */}
-        {[...Array(2)].map((_, i) => (
-          <div
-            key={`octopus-${i}`}
-            className="absolute text-purple-400/30 animate-swim-octopus"
-            style={{
-              fontSize: Math.random() * 25 + 20 + 'px',
-              top: Math.random() * 60 + 20 + '%',
-              left: '-30%',
-              animationDelay: Math.random() * 30 + 's',
-              animationDuration: Math.random() * 18 + 14 + 's'
-            }}
-          >
-            🐙
-          </div>
-        ))}
-        
-        {/* Bintang laut */}
-        {[...Array(5)].map((_, i) => (
-          <div
-            key={`starfish-${i}`}
-            className="absolute text-yellow-400/30"
-            style={{
-              fontSize: Math.random() * 15 + 10 + 'px',
-              bottom: Math.random() * 20 + 10 + '%',
-              left: Math.random() * 100 + '%',
-              animation: 'pulse 2s ease-in-out infinite',
-              animationDelay: Math.random() * 2 + 's'
-            }}
-          >
-            ⭐
-          </div>
-        ))}
-        
-        {/* Gelembung air */}
-        {[...Array(30)].map((_, i) => (
-          <div
-            key={`bubble-${i}`}
-            className="absolute rounded-full bg-white/10 animate-float"
-            style={{
-              width: Math.random() * 15 + 3 + 'px',
-              height: Math.random() * 15 + 3 + 'px',
-              left: Math.random() * 100 + '%',
-              top: Math.random() * 100 + '%',
-              animationDelay: Math.random() * 8 + 's',
-              animationDuration: Math.random() * 5 + 3 + 's'
-            }}
-          />
-        ))}
-        
-        {/* Sinar matahari di air */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent"></div>
-      </div>
+    <div 
+      className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500"
+      onClick={handleUserInteraction}
+    >
+      <BackgroundAnimations />
 
-      {/* Konten Utama dengan Liquid Glass */}
       <div className="relative z-10 w-full max-w-md">
         <div className="backdrop-blur-xl bg-white/20 rounded-3xl shadow-2xl p-8 border border-white/30 animate-scale-in">
-          {/* Header */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-400/80 to-cyan-400/80 rounded-2xl mb-3 backdrop-blur-sm border border-white/30 shadow-lg">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -468,14 +504,12 @@ const LoginRegister = () => {
             </p>
           </div>
 
-          {/* Error General */}
           {errors.general && (
             <div className="mb-4 p-3 backdrop-blur-sm bg-red-500/20 border border-red-400/30 rounded-2xl text-white/90 text-sm">
               {errors.general}
             </div>
           )}
 
-          {/* Tab Login / Register dengan Liquid Glass */}
           <div className="flex rounded-2xl backdrop-blur-sm bg-white/10 p-1 mb-6 border border-white/20">
             <button
               className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition ${
@@ -484,6 +518,7 @@ const LoginRegister = () => {
                   : 'text-white/70 hover:text-white hover:bg-white/10'
               }`}
               onClick={() => handleTabChange(true)}
+              onMouseEnter={handleHoverSound}
             >
               Login
             </button>
@@ -494,12 +529,12 @@ const LoginRegister = () => {
                   : 'text-white/70 hover:text-white hover:bg-white/10'
               }`}
               onClick={() => handleTabChange(false)}
+              onMouseEnter={handleHoverSound}
             >
               Register
             </button>
           </div>
 
-          {/* Pilihan Peran (hanya untuk Register) dengan Liquid Glass */}
           {!isLogin && (
             <div className="flex rounded-2xl backdrop-blur-sm bg-white/10 p-1 mb-6 border border-white/20">
               <button
@@ -509,6 +544,7 @@ const LoginRegister = () => {
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                 }`}
                 onClick={() => handleRoleChange('teacher')}
+                onMouseEnter={handleHoverSound}
               >
                 👨‍🏫 Teacher
               </button>
@@ -519,6 +555,7 @@ const LoginRegister = () => {
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                 }`}
                 onClick={() => handleRoleChange('student')}
+                onMouseEnter={handleHoverSound}
               >
                 🎓 Student
               </button>
@@ -526,142 +563,81 @@ const LoginRegister = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Field Nama (hanya untuk Register) */}
             {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-1.5">
-                  Nama Lengkap <span className="text-red-300">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
-                    errors.name ? 'border-red-400/50' : 'border-white/30'
-                  }`}
-                  placeholder="Masukkan nama lengkap"
-                />
-                {errors.name && <p className="text-red-300 text-xs mt-1">{errors.name}</p>}
-              </div>
+              <FormInput
+                label="Nama Lengkap"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                error={errors.name}
+                placeholder="Masukkan nama lengkap"
+                required
+              />
             )}
 
-            {/* Field NIP/NIPK (hanya untuk Register Teacher) */}
             {!isLogin && role === 'teacher' && (
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-1.5">
-                  NIP / NIPK <span className="text-red-300">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="nip"
-                  value={formData.nip}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
-                    errors.nip ? 'border-red-400/50' : 'border-white/30'
-                  }`}
-                  placeholder="Masukkan NIP/NIPK (angka)"
-                />
-                {errors.nip && <p className="text-red-300 text-xs mt-1">{errors.nip}</p>}
-              </div>
+              <FormInput
+                label="NIP / NIPK"
+                name="nip"
+                value={formData.nip}
+                onChange={handleChange}
+                error={errors.nip}
+                placeholder="Masukkan NIP/NIPK (angka)"
+                required
+              />
             )}
 
-            {/* Field NIS/NISN/NIM (hanya untuk Register Student) */}
             {!isLogin && role === 'student' && (
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-1.5">
-                  NIS / NISN / NIM <span className="text-red-300">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="nis"
-                  value={formData.nis}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
-                    errors.nis ? 'border-red-400/50' : 'border-white/30'
-                  }`}
-                  placeholder="Masukkan NIS/NISN/NIM (angka)"
-                />
-                {errors.nis && <p className="text-red-300 text-xs mt-1">{errors.nis}</p>}
-              </div>
+              <FormInput
+                label="NIS / NISN / NIM"
+                name="nis"
+                value={formData.nis}
+                onChange={handleChange}
+                error={errors.nis}
+                placeholder="Masukkan NIS/NISN/NIM (angka)"
+                required
+              />
             )}
 
-            {/* Email (selalu tampil) */}
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1.5">
-                Email <span className="text-red-300">*</span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
-                  errors.email ? 'border-red-400/50' : 'border-white/30'
-                }`}
-                placeholder="email@contoh.com"
-              />
-              {errors.email && <p className="text-red-300 text-xs mt-1">{errors.email}</p>}
-            </div>
+            <FormInput
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              error={errors.email}
+              placeholder="email@contoh.com"
+              required
+            />
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1.5">
-                Password <span className="text-red-300">*</span>
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
-                  errors.password ? 'border-red-400/50' : 'border-white/30'
-                }`}
-                placeholder="Minimal 6 karakter"
-              />
-              {errors.password && <p className="text-red-300 text-xs mt-1">{errors.password}</p>}
-            </div>
+            <FormInput
+              label="Password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              error={errors.password}
+              placeholder="Minimal 6 karakter"
+              required
+            />
 
-            {/* Confirm Password (hanya untuk Register) */}
             {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-1.5">
-                  Konfirmasi Password <span className="text-red-300">*</span>
-                </label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
-                    errors.confirmPassword ? 'border-red-400/50' : 'border-white/30'
-                  }`}
-                  placeholder="Ulangi password"
-                />
-                {errors.confirmPassword && <p className="text-red-300 text-xs mt-1">{errors.confirmPassword}</p>}
-              </div>
+              <FormInput
+                label="Konfirmasi Password"
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                error={errors.confirmPassword}
+                placeholder="Ulangi password"
+                required
+              />
             )}
 
-            {/* Catatan dengan Liquid Glass */}
-            {/* {!isLogin && (
-              <div className="backdrop-blur-sm bg-blue-500/20 border border-blue-400/30 rounded-2xl p-4 text-sm text-white/90">
-                <p className="flex items-center">
-                  <span className="mr-2">💡</span>
-                  Room ID akan diberikan oleh guru setelah Anda bergabung ke kelas.
-                </p>
-                {role === 'student' && (
-                  <p className="flex items-center mt-2">
-                    <span className="mr-2">🎮</span>
-                    Data skor game akan otomatis dibuat untuk Anda.
-                  </p>
-                )}
-              </div>
-            )} */}
-
-            {/* Tombol Submit dengan Liquid Glass */}
             <button
               type="submit"
               disabled={loading}
+              onMouseEnter={handleHoverSound}
               className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-3.5 rounded-2xl transition duration-200 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed border border-white/30"
             >
               {loading ? (
@@ -678,12 +654,12 @@ const LoginRegister = () => {
             </button>
           </form>
 
-          {/* Footer / Link tambahan dengan Liquid Glass */}
           <div className="text-center text-sm text-white/70 mt-6">
             {isLogin ? "Belum punya akun? " : "Sudah punya akun? "}
             <button
               className="text-white font-medium hover:text-cyan-200 transition-colors underline-offset-2 hover:underline"
               onClick={() => handleTabChange(!isLogin)}
+              onMouseEnter={handleHoverSound}
             >
               {isLogin ? 'Daftar di sini' : 'Login di sini'}
             </button>
@@ -691,45 +667,97 @@ const LoginRegister = () => {
         </div>
       </div>
 
-      {/* CSS Animations */}
       <style jsx>{`
         @keyframes float {
           0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
           50% { transform: translateY(-30px) scale(1.2); opacity: 0.2; }
         }
         
-        @keyframes swim {
-          0% { transform: translateX(0) scaleX(1); }
-          50% { transform: translateX(calc(100vw)) scaleX(1); }
-          100% { transform: translateX(calc(200vw)) scaleX(1); }
+        @keyframes swim-right-to-left {
+          0% { 
+            transform: translateX(0);
+            opacity: 0.7;
+          }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { 
+            transform: translateX(calc(-110vw));
+            opacity: 0.7;
+          }
         }
         
-        @keyframes swim-slow {
-          0% { transform: translateX(0) scaleX(1); }
-          50% { transform: translateX(calc(100vw)) scaleX(1); }
-          100% { transform: translateX(calc(200vw)) scaleX(1); }
+        @keyframes swim-right-to-left-slow {
+          0% { 
+            transform: translateX(0);
+            opacity: 0.6;
+          }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { 
+            transform: translateX(calc(-115vw));
+            opacity: 0.6;
+          }
         }
         
-        @keyframes swim-turtle {
-          0% { transform: translateX(0) scaleX(1) translateY(0); }
-          25% { transform: translateX(calc(50vw)) scaleX(1) translateY(-20px); }
-          50% { transform: translateX(calc(100vw)) scaleX(1) translateY(0); }
-          75% { transform: translateX(calc(150vw)) scaleX(1) translateY(-30px); }
-          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(0); }
+        @keyframes swim-turtle-right-to-left {
+          0% { 
+            transform: translateX(0) translateY(0);
+            opacity: 0.5;
+          }
+          25% { 
+            transform: translateX(calc(-50vw)) translateY(-20px);
+            opacity: 1;
+          }
+          50% { 
+            transform: translateX(calc(-100vw)) translateY(0);
+            opacity: 1;
+          }
+          75% { 
+            transform: translateX(calc(-150vw)) translateY(-30px);
+            opacity: 1;
+          }
+          100% { 
+            transform: translateX(calc(-200vw)) translateY(0);
+            opacity: 0.5;
+          }
         }
         
-        @keyframes swim-turtle2 {
-          0% { transform: translateX(0) scaleX(1) translateY(0); }
-          33% { transform: translateX(calc(70vw)) scaleX(1) translateY(-25px); }
-          66% { transform: translateX(calc(140vw)) scaleX(1) translateY(0); }
-          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(-20px); }
+        @keyframes swim-turtle2-right-to-left {
+          0% { 
+            transform: translateX(0) translateY(0);
+            opacity: 0.4;
+          }
+          33% { 
+            transform: translateX(calc(-70vw)) translateY(-25px);
+            opacity: 1;
+          }
+          66% { 
+            transform: translateX(calc(-140vw)) translateY(0);
+            opacity: 1;
+          }
+          100% { 
+            transform: translateX(calc(-200vw)) translateY(-20px);
+            opacity: 0.4;
+          }
         }
         
-        @keyframes swim-octopus {
-          0% { transform: translateX(0) scaleX(1) translateY(0); }
-          30% { transform: translateX(calc(60vw)) scaleX(1) translateY(-15px); }
-          60% { transform: translateX(calc(120vw)) scaleX(1) translateY(15px); }
-          100% { transform: translateX(calc(200vw)) scaleX(1) translateY(0); }
+        @keyframes swim-octopus-right-to-left {
+          0% { 
+            transform: translateX(0) translateY(0);
+            opacity: 0.3;
+          }
+          30% { 
+            transform: translateX(calc(-60vw)) translateY(-15px);
+            opacity: 0.8;
+          }
+          60% { 
+            transform: translateX(calc(-120vw)) translateY(15px);
+            opacity: 0.8;
+          }
+          100% { 
+            transform: translateX(calc(-200vw)) translateY(0);
+            opacity: 0.3;
+          }
         }
         
         @keyframes sway {
@@ -749,26 +777,6 @@ const LoginRegister = () => {
         
         .animate-float {
           animation: float ease-in-out infinite;
-        }
-        
-        .animate-swim {
-          animation: swim linear infinite;
-        }
-        
-        .animate-swim-slow {
-          animation: swim-slow linear infinite;
-        }
-        
-        .animate-swim-turtle {
-          animation: swim-turtle ease-in-out infinite;
-        }
-        
-        .animate-swim-turtle2 {
-          animation: swim-turtle2 ease-in-out infinite;
-        }
-        
-        .animate-swim-octopus {
-          animation: swim-octopus ease-in-out infinite;
         }
         
         .animate-sway {

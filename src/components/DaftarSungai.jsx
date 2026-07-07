@@ -28,6 +28,9 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
+// Import SoundManager
+import { playHoverSound, playClickSound, resumeAudio } from '../utils/SoundManager';
+
 // sungai
 import GambarSungaiBarito from "./assets/Sungai Barito.jpeg";
 import GambarSungaiKuin from "./assets/Sungai Kuin.jpeg";
@@ -35,7 +38,19 @@ import GambarSungaiAlalak from "./assets/Sungai Alalak.jpeg";
 import GambarSungaiAwang from "./assets/Sungai Awang.jpeg";
 import GambarSungaiMartapura from "./assets/Sungai Martapura.jpeg";
 import GambarSungaiPelambuan from "./assets/Sungai Pelambuan.jpeg";
-import GambarTutorial from "./assets/Sungai Martapura.jpeg"; // Tambahkan gambar tutorial
+import GambarTutorial from "./assets/Sungai Martapura.jpeg";
+
+// =========================
+// FUNGSI WRAPPER UNTUK HOVER SOUND
+// =========================
+const handleHoverSound = () => {
+  try {
+    console.log('🖱️ Hover detected - playing hover sound');
+    playHoverSound();
+  } catch (error) {
+    console.error('❌ Hover sound error:', error);
+  }
+};
 
 // Data dasar sungai - PATH UNTUK NAVIGASI ADA DI SINI
 const baseLevelSungai = [
@@ -47,7 +62,7 @@ const baseLevelSungai = [
     gambar: GambarTutorial,
     tingkatKesulitan: "Pemula",
     navigatePath: "/game/tutorial",
-    isTutorial: true, // Flag untuk identifikasi tutorial
+    isTutorial: true,
     dbKey: "tutorial"
   },
   {
@@ -174,7 +189,6 @@ const baseLevelSungai = [
 
 // Difficulty Badge
 const DifficultyBadge = ({ level, isTutorial }) => {
-  // Jika tutorial, tampilkan badge khusus
   if (isTutorial) {
     return (
       <span className="px-2 py-1 rounded-xl text-xs font-bold backdrop-blur-sm bg-gradient-to-r from-teal-500/50 to-cyan-500/50 text-white border border-teal-400/30 flex items-center gap-1">
@@ -211,35 +225,41 @@ const TutorialCard = ({ level, index, onPlay }) => {
   
   const handlePlay = (e) => {
     e.stopPropagation();
+    playClickSound();
     console.log("🎮 Memulai Tutorial:", level.nama);
     
     if (onPlay) {
       onPlay(level);
     }
     
-    navigate(level.navigatePath, { 
-      state: { 
-        levelId: level.id,
-        levelName: level.nama,
-        isTutorial: true
-      } 
-    });
+    setTimeout(() => {
+      navigate(level.navigatePath, { 
+        state: { 
+          levelId: level.id,
+          levelName: level.nama,
+          isTutorial: true
+        } 
+      });
+    }, 100);
   };
   
   const handleCardClick = () => {
+    playClickSound();
     console.log("🖱️ Tutorial Card diklik:", level.nama);
     
     if (onPlay) {
       onPlay(level);
     }
     
-    navigate(level.navigatePath, { 
-      state: { 
-        levelId: level.id,
-        levelName: level.nama,
-        isTutorial: true
-      } 
-    });
+    setTimeout(() => {
+      navigate(level.navigatePath, { 
+        state: { 
+          levelId: level.id,
+          levelName: level.nama,
+          isTutorial: true
+        } 
+      });
+    }, 100);
   };
   
   return (
@@ -249,6 +269,7 @@ const TutorialCard = ({ level, index, onPlay }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.5 }}
       onClick={handleCardClick}
+      onMouseEnter={handleHoverSound}
     >
       {/* Background Gradient Khusus Tutorial */}
       <div className="absolute inset-0 bg-gradient-to-br from-teal-500/20 via-cyan-500/20 to-blue-500/20 z-0"></div>
@@ -327,6 +348,7 @@ const TutorialCard = ({ level, index, onPlay }) => {
         <div className="flex items-center justify-end pt-2 border-t border-teal-400/20">
           <motion.button
             onClick={handlePlay}
+            onMouseEnter={handleHoverSound}
             className="px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors backdrop-blur-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white border border-teal-400/30 hover:from-teal-600 hover:to-cyan-600 shadow-xl"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -364,6 +386,7 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
   
   const handlePlay = (e) => {
     e.stopPropagation();
+    playClickSound();
     
     console.log("🎮 Tombol diklik untuk:", level.nama);
     console.log("📌 Navigasi ke:", navigationPath);
@@ -373,16 +396,18 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
         onPlay(level);
       }
       
-      navigate(navigationPath, { 
-        state: { 
-          levelId: level.id,
-          levelName: level.nama,
-          dbKey: level.dbKey,
-          skor: skor,
-          waktu: waktu,
-          path: dbPath
-        } 
-      });
+      setTimeout(() => {
+        navigate(navigationPath, { 
+          state: { 
+            levelId: level.id,
+            levelName: level.nama,
+            dbKey: level.dbKey,
+            skor: skor,
+            waktu: waktu,
+            path: dbPath
+          } 
+        });
+      }, 100);
     } else {
       console.error("❌ Path navigasi tidak ditemukan untuk:", level.nama);
     }
@@ -390,6 +415,7 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
   
   const handleCardClick = () => {
     if (isLocked) return;
+    playClickSound();
     
     console.log("🖱️ Card diklik:", level.nama);
     console.log("📌 Navigasi ke:", navigationPath);
@@ -399,16 +425,18 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
         onPlay(level);
       }
       
-      navigate(navigationPath, { 
-        state: { 
-          levelId: level.id,
-          levelName: level.nama,
-          dbKey: level.dbKey,
-          skor: skor,
-          waktu: waktu,
-          path: dbPath
-        } 
-      });
+      setTimeout(() => {
+        navigate(navigationPath, { 
+          state: { 
+            levelId: level.id,
+            levelName: level.nama,
+            dbKey: level.dbKey,
+            skor: skor,
+            waktu: waktu,
+            path: dbPath
+          } 
+        });
+      }, 100);
     }
   };
   
@@ -421,6 +449,7 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.5 }}
       onClick={handleCardClick}
+      onMouseEnter={!isLocked ? handleHoverSound : undefined}
     >
       {/* Gambar Container */}
       <div className="relative h-48 overflow-hidden">
@@ -541,6 +570,7 @@ const LevelCard = ({ level, index, onPlay, gameData }) => {
         <div className="flex items-center justify-end pt-2 border-t border-white/20">
           <motion.button
             onClick={handlePlay}
+            onMouseEnter={handleHoverSound}
             className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1 transition-colors backdrop-blur-xl ${
               isCompleted
                 ? 'bg-green-500/40 text-white border border-green-400/30 hover:bg-green-500/60'
@@ -569,12 +599,18 @@ const JoinRoomModal = ({ isOpen, onClose, onJoin, loading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    playClickSound();
     if (!roomId.trim()) {
       setError('Room ID wajib diisi');
       return;
     }
     setError('');
     onJoin(roomId.toUpperCase());
+  };
+
+  const handleClose = () => {
+    playClickSound();
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -589,7 +625,11 @@ const JoinRoomModal = ({ isOpen, onClose, onJoin, loading }) => {
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-white drop-shadow-lg">Masuk ke Room</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition text-white/80">
+          <button 
+            onClick={handleClose}
+            onMouseEnter={handleHoverSound}
+            className="p-2 hover:bg-white/20 rounded-xl transition text-white/80"
+          >
             <X size={20} />
           </button>
         </div>
@@ -604,6 +644,7 @@ const JoinRoomModal = ({ isOpen, onClose, onJoin, loading }) => {
                 type="text"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                onMouseEnter={handleHoverSound}
                 className={`w-full px-4 py-3 backdrop-blur-sm bg-white/20 border rounded-2xl focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 outline-none transition text-white placeholder:text-white/60 ${
                   error ? 'border-red-400/50' : 'border-white/30'
                 }`}
@@ -623,13 +664,15 @@ const JoinRoomModal = ({ isOpen, onClose, onJoin, loading }) => {
           <div className="flex gap-3 mt-6">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
+              onMouseEnter={handleHoverSound}
               className="flex-1 px-4 py-2 backdrop-blur-sm bg-white/10 hover:bg-white/20 text-white rounded-2xl transition border border-white/30"
             >
               Batal
             </button>
             <button
               type="submit"
+              onMouseEnter={handleHoverSound}
               disabled={loading}
               className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-2 rounded-2xl transition disabled:opacity-50 shadow-xl"
             >
@@ -716,7 +759,6 @@ const DaftarSungai = () => {
         setGameScores(scoresData);
         
         const updatedLevels = baseLevelSungai.map(level => {
-          // Tutorial tidak perlu mengambil data skor
           if (level.isTutorial) {
             return {
               ...level,
@@ -756,16 +798,14 @@ const DaftarSungai = () => {
 
   // Hitung progress berdasarkan database
   const calculateProgress = () => {
-    const totalSungai = levelSungai.filter(level => !level.isTutorial).length; // Eksklusi tutorial
+    const totalSungai = levelSungai.filter(level => !level.isTutorial).length;
     
-    // Hitung berapa sungai yang sudah selesai (skor > 0 atau waktu > 0)
     const sungaiSelesai = levelSungai.filter(level => {
-      if (level.isTutorial) return false; // Tutorial tidak dihitung
+      if (level.isTutorial) return false;
       const dbData = gameScores[level.dbKey];
       return dbData && (dbData.skor > 0 || dbData.time !== null);
     }).length;
     
-    // Hitung progress dalam persen
     const progressPersen = totalSungai > 0 ? (sungaiSelesai / totalSungai) * 100 : 0;
     
     return {
@@ -776,12 +816,11 @@ const DaftarSungai = () => {
     };
   };
 
-  // Handle Join Room - DIPERBAIKI
+  // Handle Join Room
   const handleJoinRoom = async (roomId) => {
     try {
       setJoiningRoom(true);
       
-      // 1. Cari room berdasarkan field 'roomId' di collection 'rooms'
       const roomsRef = collection(db, 'rooms');
       const q = query(roomsRef, where('roomId', '==', roomId));
       const querySnapshot = await getDocs(q);
@@ -792,14 +831,12 @@ const DaftarSungai = () => {
         return;
       }
 
-      // 2. Room ditemukan, ambil data room
       const roomDoc = querySnapshot.docs[0];
       const roomData = roomDoc.data();
       const roomDocId = roomDoc.id;
       console.log('✅ Room ditemukan:', roomData);
       console.log('📄 Document ID:', roomDocId);
 
-      // 3. Update data user dengan room_id
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         room_id: roomId,
@@ -808,7 +845,6 @@ const DaftarSungai = () => {
         updatedAt: new Date().toISOString()
       });
 
-      // 4. Update local state
       setUserData(prev => ({
         ...prev,
         room_id: roomId,
@@ -819,7 +855,6 @@ const DaftarSungai = () => {
       alert(`✅ Berhasil masuk ke room ${roomId}!`);
       setShowJoinRoom(false);
       
-      // 5. Refresh data user
       const updatedDoc = await getDoc(userRef);
       if (updatedDoc.exists()) {
         setUserData(updatedDoc.data());
@@ -835,12 +870,27 @@ const DaftarSungai = () => {
 
   // Handle Logout
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
+    playClickSound();
+    setTimeout(async () => {
+      try {
+        await signOut(auth);
+        navigate('/');
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
+    }, 100);
+  };
+
+  const handleBackToHome = () => {
+    playClickSound();
+    setTimeout(() => {
       navigate('/');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
+    }, 100);
+  };
+
+  const handleOpenJoinRoom = () => {
+    playClickSound();
+    setShowJoinRoom(true);
   };
 
   // Hitung statistik
@@ -858,6 +908,7 @@ const DaftarSungai = () => {
   };
 
   const handleSelectLevel = (level) => {
+    playClickSound();
     setSelectedLevel(level);
     console.log("Memulai level:", level.nama);
     if (!level.isTutorial) {
@@ -865,13 +916,16 @@ const DaftarSungai = () => {
     }
   };
 
+  // Handler untuk resume audio context
+  const handleUserInteraction = () => {
+    resumeAudio();
+  };
+
   if (loading || loadingScores) {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-b from-blue-900 to-cyan-600">
-        {/* Background laut dengan animasi */}
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-b from-blue-900/50 to-cyan-600/50"></div>
-          {/* Gelembung air */}
           {[...Array(20)].map((_, i) => (
             <div
               key={i}
@@ -896,8 +950,11 @@ const DaftarSungai = () => {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500">
-      {/* Background Laut dengan Animasi - Sama seperti sebelumnya */}
+    <div 
+      className="min-h-screen relative overflow-hidden bg-gradient-to-b from-blue-900 via-blue-700 to-cyan-500"
+      onClick={handleUserInteraction}
+    >
+      {/* Background Laut dengan Animasi */}
       <div className="absolute inset-0">
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-yellow-900/30 to-transparent"></div>
         
@@ -1030,13 +1087,14 @@ const DaftarSungai = () => {
 
       {/* Konten Utama dengan efek Liquid Glass */}
       <div className="relative z-10">
-        {/* Header dengan Liquid Glass - Sama seperti sebelumnya */}
+        {/* Header dengan Liquid Glass */}
         <header className="backdrop-blur-xl bg-white/20 shadow-2xl sticky top-0 z-20 border-b border-white/30">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center gap-3">
                 <motion.button
-                  onClick={() => navigate('/')}
+                  onClick={handleBackToHome}
+                  onMouseEnter={handleHoverSound}
                   className="p-2 hover:bg-white/20 rounded-2xl transition-colors backdrop-blur-sm"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
@@ -1075,7 +1133,8 @@ const DaftarSungai = () => {
                       </div>
                     ) : (
                       <button
-                        onClick={() => setShowJoinRoom(true)}
+                        onClick={handleOpenJoinRoom}
+                        onMouseEnter={handleHoverSound}
                         className="flex items-center gap-2 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white px-4 py-1.5 rounded-2xl text-sm font-medium transition duration-200 shadow-xl hover:shadow-2xl border border-white/30"
                       >
                         <DoorOpen size={16} />
@@ -1087,6 +1146,7 @@ const DaftarSungai = () => {
 
                 <button
                   onClick={handleLogout}
+                  onMouseEnter={handleHoverSound}
                   className="flex items-center gap-2 backdrop-blur-sm bg-red-500/30 hover:bg-red-500/50 text-white px-3 py-1.5 rounded-2xl text-sm font-medium transition duration-200 border border-white/30"
                 >
                   <LogOut size={16} />
@@ -1097,7 +1157,7 @@ const DaftarSungai = () => {
           </div>
         </header>
 
-        {/* Progress Bar dengan Liquid Glass - DIPERBAIKI (Tutorial tidak dihitung) */}
+        {/* Progress Bar dengan Liquid Glass */}
         <div className="backdrop-blur-xl bg-white/10 border-b border-white/20">
           <div className="max-w-7xl mx-auto px-4 py-3">
             <div className="flex items-center justify-between mb-2">
@@ -1232,7 +1292,7 @@ const DaftarSungai = () => {
         loading={joiningRoom}
       />
 
-      {/* CSS Animations - Sama seperti sebelumnya */}
+      {/* CSS Animations */}
       <style jsx>{`
         @keyframes float {
           0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }

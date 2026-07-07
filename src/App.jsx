@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import DaftarSungai from './components/DaftarSungai';
@@ -17,11 +18,57 @@ import LoginRegister from './components/LoginRegister';
 import DashboardGuru from './components/DashboardGuru';
 import Maintenance from './components/Maintenance';
 import Tutorial from './components/game/Tutorial';
-
-
-
+import { preloadSounds, resumeAudio, getAudioStatus } from './utils/SoundManager';
 
 function App() {
+  useEffect(() => {
+    // Preload sounds saat aplikasi dimulai
+    console.log('🔊 Preloading sounds...');
+    preloadSounds()
+      .then(() => {
+        console.log('✅ All sounds preloaded successfully!');
+        // Log status audio setelah preload
+        console.log('📊 Audio Status:', getAudioStatus());
+      })
+      .catch(err => {
+        console.error('❌ Error preloading sounds:', err);
+      });
+  }, []);
+
+  // Global handler untuk resume audio context
+  useEffect(() => {
+    // Fungsi untuk resume audio saat user berinteraksi
+    const handleUserInteraction = () => {
+      resumeAudio();
+    };
+
+    // Daftar event yang akan memicu resume audio
+    const events = [
+      'click',
+      'touchstart', 
+      'keydown',
+      'mousedown',
+      'scroll',
+      'touchmove'
+    ];
+
+    // Tambahkan event listeners
+    events.forEach(event => {
+      document.addEventListener(event, handleUserInteraction, { passive: true });
+    });
+
+    // Log status awal
+    console.log('🎵 Audio Auto-Resume enabled');
+
+    // Cleanup event listeners
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, handleUserInteraction);
+      });
+      console.log('🎵 Audio Auto-Resume disabled');
+    };
+  }, []);
+
   return (
     <Router>
       <Routes>
@@ -38,11 +85,11 @@ function App() {
         <Route path="/game/martapura2" element={<SungaiMartapuraPart2 />} />
         <Route path="/game/martapura4" element={<SungaiMartapuraPart4 />} />
         <Route path="/game/martapura3" element={<SungaiMartapuraPart3 />} />
-        <Route path="/game/kuin" element={<SungaiKuin/>} />
-        <Route path="/game/kuin2" element={<SungaiKuinPart2/>} />
-        <Route path="/game/kuin3" element={<SungaiKuinPart3/>} />
-        <Route path="/game/pelambuan" element={<SungaiPelambuan/>} />
-
+        <Route path="/game/kuin" element={<SungaiKuin />} />
+        <Route path="/game/kuin2" element={<SungaiKuinPart2 />} />
+        <Route path="/game/kuin3" element={<SungaiKuinPart3 />} />
+        <Route path="/game/pelambuan" element={<SungaiPelambuan />} />
+        <Route path="/maintenance" element={<Maintenance />} />
       </Routes>
     </Router>
   );
