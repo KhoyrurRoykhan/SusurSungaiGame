@@ -546,7 +546,7 @@ const LoginRegister = () => {
                 onClick={() => handleRoleChange('teacher')}
                 onMouseEnter={handleHoverSound}
               >
-                👨‍🏫 Teacher
+                Guru
               </button>
               <button
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition ${
@@ -557,7 +557,7 @@ const LoginRegister = () => {
                 onClick={() => handleRoleChange('student')}
                 onMouseEnter={handleHoverSound}
               >
-                🎓 Student
+                Siswa
               </button>
             </div>
           )}
@@ -589,12 +589,12 @@ const LoginRegister = () => {
 
             {!isLogin && role === 'student' && (
               <FormInput
-                label="NIS / NISN / NIM"
+                label="NIS / NISN"
                 name="nis"
                 value={formData.nis}
                 onChange={handleChange}
                 error={errors.nis}
-                placeholder="Masukkan NIS/NISN/NIM (angka)"
+                placeholder="Masukkan NIS/NISN (angka)"
                 required
               />
             )}
