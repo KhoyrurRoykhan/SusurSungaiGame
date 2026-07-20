@@ -291,11 +291,11 @@ const LocationPopupContent = ({ lokasi, isActive = false, onContinue = null }) =
             {copied ? '✅' : '📋'}
           </button>
         </div>
-        {lokasi.Foto_Lokasi && (
+        {/* {lokasi.Foto_Lokasi && (
           <a href={lokasi.Foto_Lokasi} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#0ea5e9', textDecoration: 'none', marginTop: '6px', paddingLeft: '22px', fontWeight: '500' }}>
             🔗 Lihat Foto
           </a>
-        )}
+        )} */}
         {isActive && onContinue && (
           <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '2px dashed #14b8a6', textAlign: 'center' }}>
             <button

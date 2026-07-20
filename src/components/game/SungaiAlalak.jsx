@@ -1376,7 +1376,7 @@ const SungaiAlalak = () => {
                         {lokasi.Bisa_Dicapai_Perahu === 'Ya' ? '🚤 Bisa perahu' : '🚫 Tidak'}
                       </span>
                     </div>
-                    {lokasi.Foto_Lokasi && (
+                    {/* {lokasi.Foto_Lokasi && (
                       <a
                         href={lokasi.Foto_Lokasi}
                         target="_blank"
@@ -1385,7 +1385,7 @@ const SungaiAlalak = () => {
                       >
                         Lihat Foto
                       </a>
-                    )}
+                    )} */}
                   </div>
                 </Popup>
               </Marker>
