@@ -299,7 +299,7 @@ const TutorialCard = ({ level, index, onPlay }) => {
 
         {/* Status Badge */}
         <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 backdrop-blur-xl bg-green-500/60 text-white border border-green-400/30">
-          <Unlock size={12} /> Gratis
+          <Unlock size={12} /> Percobaan
         </div>
       </div>
 
