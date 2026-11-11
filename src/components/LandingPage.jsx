@@ -330,6 +330,10 @@ const TentangModal = ({ isOpen, onClose }) => {
                       <div className="text-xs">Harja Santana Purba</div>
                     </div>
                     <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
+                      <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 text-sm font-bold">NA</div>
+                      <div className="text-xs">Novan Alkaf B.S</div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
                       <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 text-sm font-bold">IM</div>
                       <div className="text-xs">Ihdalhubbi Maulida</div>
                     </div>
