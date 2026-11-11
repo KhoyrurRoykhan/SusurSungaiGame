@@ -325,27 +325,51 @@ const TentangModal = ({ isOpen, onClose }) => {
                     <Code size={18} className="text-amber-300" /> Tim Pengembang
                   </h2>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
-                      <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 text-sm font-bold">HS</div>
-                      <div className="text-xs">Harja Santana Purba</div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
-                      <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 text-sm font-bold">NA</div>
-                      <div className="text-xs">Novan Alkaf B.S</div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
-                      <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 text-sm font-bold">IM</div>
-                      <div className="text-xs">Ihdalhubbi Maulida</div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
-                      <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 text-sm font-bold">KR</div>
-                      <div className="text-xs">Khoyrur Roykhan</div>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/10">
-                      <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 text-sm font-bold">AN</div>
-                      <div className="text-xs">Alfika Nurfadia</div>
-                    </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
+                  <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">
+                    HS
                   </div>
+                  <div className="text-xs font-medium text-white truncate">
+                    Harja Santana Purba
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
+                  <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">
+                    NA
+                  </div>
+                  <div className="text-xs font-medium text-white truncate">
+                    Novan Alkaf B.S
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
+                  <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">
+                    IM
+                  </div>
+                  <div className="text-xs font-medium text-white truncate">
+                    Ihdalhubbi Maulida
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
+                  <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">
+                    KR
+                  </div>
+                  <div className="text-xs font-medium text-white truncate">
+                    Khoyrur Roykhan
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
+                  <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">
+                    AN
+                  </div>
+                  <div className="text-xs font-medium text-white truncate">
+                    Alfika Nurfadia
+                  </div>
+                </div>
+              </div>
                   <div className="mt-2 flex flex-wrap gap-3 justify-center text-xs text-white/70">
                     <span className="flex items-center gap-1"><Mail size={14} /> pilkom@ulm.ac.id</span>
                     <span className="flex items-center gap-1"><Globe size={14} /> pilkom.ulm.ac.id</span>
