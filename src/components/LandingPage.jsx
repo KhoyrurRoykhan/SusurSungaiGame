@@ -338,22 +338,12 @@ const TentangModal = ({ isOpen, onClose }) => {
                       <div className="text-xs font-medium text-white truncate">Ihdalhubbi Maulida</div>
                     </div>
                   </div>
-                  {/* <div className="grid grid-cols-3 gap-2 justify-center">
+                  <div className="grid grid-cols-3 gap-2 justify-center">
                     <div className="col-start-1 col-span-1 sm:col-start-auto flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
                       <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">KR</div>
                       <div className="text-xs font-medium text-white truncate">Khoyrur Roykhan</div>
                     </div>
                     <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10">
-                      <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">AN</div>
-                      <div className="text-xs font-medium text-white truncate">Alfika Nurfadia</div>
-                    </div>
-                  </div> */}
-                  <div className="flex justify-center gap-2">
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 w-[calc(33.333%-0.5rem)]">
-                      <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">KR</div>
-                      <div className="text-xs font-medium text-white truncate">Khoyrur Roykhan</div>
-                    </div>
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/10 w-[calc(33.333%-0.5rem)]">
                       <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-amber-400/20 text-amber-300 text-sm font-bold">AN</div>
                       <div className="text-xs font-medium text-white truncate">Alfika Nurfadia</div>
                     </div>
